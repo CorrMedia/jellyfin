@@ -14,5 +14,7 @@ services:
       - ./docker/jellyfin/config:/config
       - ./docker/jellyfin/cache:/cache
       - ./docker/jellyfin/media:/media
+      - ./test-movie.corr.json:/media/test-movie.corr.json
+      - ./test-movie.mkv:/media/test-movie.mkv
       - ./docker/jellyfin/plugins:/config/plugins
 

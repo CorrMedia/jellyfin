@@ -1,0 +1,28 @@
+{
+  "$schema": "../schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Example box blur",
+    "runtime": 120
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 8.0,
+      "end": 20.0,
+      "action": "blur",
+      "radius": 12,
+      "box": {
+        "x": 0.05,
+        "y": 0.75,
+        "width": 0.3,
+        "height": 0.2
+      },
+      "box_end": {
+        "x": 0.65,
+        "y": 0.75
+      },
+      "description": "Blur a region, panning left→right"
+    }
+  ]
+}

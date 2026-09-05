@@ -40,9 +40,10 @@ public sealed class EdlEditStore
         }
 
         _logger.LogInformation(
-            "Stored EDL plan mutes={MuteCount} skips={SkipCount}",
+            "Stored EDL plan mutes={MuteCount} skips={SkipCount} videoEffects={VideoEffectCount}",
             plan.MuteRanges.Count,
-            plan.SkipRanges.Count);
+            plan.SkipRanges.Count,
+            plan.VideoEffects.Count);
     }
 
     /// <summary>

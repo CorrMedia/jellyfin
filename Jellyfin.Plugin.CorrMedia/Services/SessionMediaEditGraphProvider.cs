@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services;
 
 /// <summary>
-/// Supplies mute-then-cut FFmpeg graphs for patched Jellyfin.
+/// Supplies FFmpeg graphs (zoom/blur/mute, then cut) for patched Jellyfin.
 /// </summary>
 public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvider
 {
@@ -23,21 +23,21 @@ public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvid
     {
         _edlEditStore = edlEditStore ?? throw new ArgumentNullException(nameof(edlEditStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _logger.LogInformation("SessionMediaEditGraphProvider registered (mute-then-cut)");
+        _logger.LogInformation("SessionMediaEditGraphProvider registered (effects-then-cut)");
     }
 
     /// <inheritdoc />
     public bool HasEditGraph(string? playSessionId, string? deviceId)
     {
         var plan = _edlEditStore.GetPlan(playSessionId, deviceId);
-        return plan?.HasCuts == true;
+        return plan?.NeedsEditGraph == true;
     }
 
     /// <inheritdoc />
     public SessionMediaEditGraph? GetEditGraph(string? playSessionId, string? deviceId, SessionMediaEditGraphContext context)
     {
         var plan = _edlEditStore.GetPlan(playSessionId, deviceId);
-        if (plan is null || !plan.HasCuts)
+        if (plan is null || !plan.NeedsEditGraph)
         {
             return null;
         }

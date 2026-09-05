@@ -65,8 +65,7 @@ public sealed class SessionEdlDeliveryHint : ISessionEdlDeliveryHint
             return false;
         }
 
-        var (_, skips) = CorrFile.ParseMuteAndSkip(corrPath);
-        return skips.Count > 0;
+        return CorrFile.Parse(corrPath).Skips.Count > 0;
     }
 }
 

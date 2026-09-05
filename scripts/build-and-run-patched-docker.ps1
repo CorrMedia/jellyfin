@@ -5,7 +5,7 @@
 .DESCRIPTION
     1. Builds the Docker image jellyfin-patched:local from jellyfin-source (patched server).
     2. Builds CorrMedia (patched, net9.0) and copies it to docker/jellyfin/plugins.
-    2b. Copies test-movie.corr.json and test-movie.mkv from repo root to docker/jellyfin/media (if present) for edit testing.
+    2b. Bind-mounts repo-root test-movie.corr.json and test-movie.mkv over /media (see docker-compose.patched.yml).
     3. Starts the container with docker-compose.patched.yml.
 .PARAMETER SkipImageBuild
     If set, skip building the Docker image (use existing jellyfin-patched:local).
@@ -77,7 +77,8 @@ if (-not $SkipPlugins) {
     Write-Host 'Skipping plugin build and stage.'
 }
 
-# 2b. Ensure test media/corr sidecar are in docker/jellyfin/media
+# 2b. Test media: compose bind-mounts repo-root test-movie.corr.json and .mkv over /media.
+# Copies below keep docker/jellyfin/media in sync for inspection; playback uses the bind mounts.
 $mediaDir = Join-Path $repoRoot 'docker\jellyfin\media'
 New-Item -ItemType Directory -Force -Path $mediaDir | Out-Null
 $rootCorr = Join-Path $repoRoot 'test-movie.corr.json'

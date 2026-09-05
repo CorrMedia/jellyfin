@@ -38,12 +38,45 @@
     },
     {
       "id": "edit_004",
+      "start": 40.0,
+      "end": 50.0,
+      "action": "zoom",
+      "scale": 2.0,
+      "x": 0.3,
+      "y": 0.45,
+      "x_end": 0.7,
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Punch in 40–50s and pan left→right across the ORIG counter (edited playhead ~35–45s after the cut)"
+    },
+    {
+      "id": "edit_005",
       "start": 60.0,
       "end": 65.0,
       "action": "mute",
       "categories": ["test"],
       "severity": 1,
       "description": "Mute 60–65s; ORIG counter still advances"
+    },
+    {
+      "id": "edit_006",
+      "start": 70.0,
+      "end": 80.0,
+      "action": "blur",
+      "radius": 150,
+      "box": {
+        "x": 0.05,
+        "y": 0.3,
+        "width": 0.3,
+        "height": 0.4
+      },
+      "box_end": {
+        "x": 0.65,
+        "y": 0.3
+      },
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Blur a box 70–80s, panning left→right (edited playhead ~65–75s after the cut)"
     }
   ]
 }

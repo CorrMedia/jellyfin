@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/CorrMedia/jellyfin/schema/corr.schema.json",
   "title": "Corr edit sidecar",
-  "description": "Sidecar next to a media file (MyMovie.mkv → MyMovie.corr.json). Playback currently applies mute and skip; other actions are reserved. Non-length-altering edits (mute) are applied before length-altering edits (skip/cut, and later crop). All times are on the original source timeline and are never adjusted for cuts or crops.",
+  "description": "Sidecar next to a media file (MyMovie.mkv → MyMovie.corr.json). Playback applies mute, zoom, blur, and skip. Other actions are reserved. Non-length-altering edits (mute, zoom, blur) are applied before length-altering edits (skip/cut, and later crop). All times are on the original source timeline and are never adjusted for cuts or crops.",
   "type": "object",
   "required": ["schema_version", "edits"],
   "additionalProperties": true,
@@ -35,7 +35,63 @@
           "action": {
             "type": "string",
             "minLength": 1,
-            "description": "Playback applies \"mute\" and \"skip\". Other values are ignored until supported."
+            "description": "Playback applies \"mute\", \"zoom\" (alias \"punch\"), \"blur\" (alias \"boxblur\"), and \"skip\". Other values are ignored until supported."
+          },
+          "scale": {
+            "type": "number",
+            "exclusiveMinimum": 1,
+            "description": "Zoom factor (> 1). Default 2. Ignored when box is set for zoom."
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Zoom center X at range start, 0–1. Default 0.5."
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Zoom center Y at range start, 0–1. Default 0.5."
+          },
+          "x_end": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Zoom center X at range end. Linear pan from x. Omit for a static zoom."
+          },
+          "y_end": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Zoom center Y at range end. Linear pan from y. Omit for a static zoom."
+          },
+          "radius": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Boxblur luma radius in pixels (single pass; power is not configurable). Default 8. Clamped per plane so luma cannot exceed half the region and chroma cannot exceed half the subsampled chroma size."
+          },
+          "box": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 1, "description": "Left edge, 0–1." },
+              "y": { "type": "number", "minimum": 0, "maximum": 1, "description": "Top edge, 0–1." },
+              "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "description": "Width, 0–1." },
+              "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "description": "Height, 0–1." }
+            },
+            "description": "Normalized region at range start. For zoom: crop this box and scale it to fill the frame. For blur: blur only this region (omit for full-frame blur)."
+          },
+          "box_end": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 1, "description": "Left edge at range end, 0–1." },
+              "y": { "type": "number", "minimum": 0, "maximum": 1, "description": "Top edge at range end, 0–1." },
+              "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "description": "Width, 0–1. Omit to keep box width." },
+              "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "description": "Height, 0–1. Omit to keep box height." }
+            },
+            "description": "Normalized region at range end. X/Y lerp from box on the original timeline (pan). Width/height stay at the start box because FFmpeg crop size is not per-frame."
           },
           "categories": {
             "type": "array",

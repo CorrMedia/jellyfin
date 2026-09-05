@@ -18,5 +18,8 @@ services:
       - ./docker/jellyfin/config:/config
       - ./docker/jellyfin/cache:/cache
       - ./docker/jellyfin/media:/media
+      # Live sidecar/mkv from repo root so editing test-movie.corr.json is what playback reads.
+      - ./test-movie.corr.json:/media/test-movie.corr.json
+      - ./test-movie.mkv:/media/test-movie.mkv
       - ./docker/jellyfin/plugins:/config/plugins
       - .:/workspace

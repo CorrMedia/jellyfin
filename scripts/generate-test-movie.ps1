@@ -1,7 +1,9 @@
 # Generates a 90s test clip with on-screen original-second counter + tone audio.
-# corr.json verification:
+# corr.json verification (times are original timeline):
 #   - mute 0-10 / 30-35 / 60-65: silence while ORIG Ns still advances
 #   - skip 15-20: after ORIG 14s, next frame should show ORIG 20s (cut omitted)
+#   - zoom 40-50: punch-in that pans left→right (edited playhead ~35-45s)
+#   - blur 70-80: box blur that pans left→right (edited playhead ~65-75s)
 # Usage: .\scripts\generate-test-movie.ps1
 param(
     [string]$OutputPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'test-movie.mkv'),
@@ -15,7 +17,7 @@ $tmpInContainer = '/media/test-movie.mkv'
 Write-Host "Generating ${DurationSeconds}s testsrc2 + ORIG second overlay via $Container..."
 
 $vf = @"
-[0:v]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=140:fontcolor=white:borderw=4:bordercolor=black:x=(w-tw)/2:y=(h-th)/2-40:text='ORIG %{eif\:t\:d}s',drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=28:fontcolor=yellow:borderw=2:bordercolor=black:x=40:y=40:text='mute 0-10 / skip 15-20 / mute 30-35 / mute 60-65',drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=24:fontcolor=white:borderw=2:bordercolor=black:x=40:y=h-60:text='After cut\: at playhead ~15s you should see ORIG 20s'[v];[1:a]volume=0.4[a]
+[0:v]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=140:fontcolor=white:borderw=4:bordercolor=black:x=(w-tw)/2:y=(h-th)/2-40:text='ORIG %{eif\:t\:d}s',drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=24:fontcolor=yellow:borderw=2:bordercolor=black:x=40:y=40:text='mute 0-10 / skip 15-20 / mute 30-35',drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=24:fontcolor=yellow:borderw=2:bordercolor=black:x=40:y=78:text='zoom 40-50 / mute 60-65 / blur 70-80',drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=24:fontcolor=white:borderw=2:bordercolor=black:x=40:y=h-60:text='After cut\: at playhead ~15s you should see ORIG 20s'[v];[1:a]volume=0.4[a]
 "@.Trim()
 
 docker exec $Container /usr/lib/jellyfin-ffmpeg/ffmpeg -y `

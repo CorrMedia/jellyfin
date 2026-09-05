@@ -1,0 +1,21 @@
+{
+  "$schema": "../schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Example zoom (punch in)",
+    "runtime": 120
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 10.0,
+      "end": 25.0,
+      "action": "zoom",
+      "scale": 2.0,
+      "x": 0.3,
+      "y": 0.35,
+      "x_end": 0.7,
+      "description": "Punch in and pan left→right"
+    }
+  ]
+}

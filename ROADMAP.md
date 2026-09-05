@@ -5,14 +5,16 @@
 Offer **two deliveries** of the same library item:
 
 1. **Original** — untouched file (direct play / normal remux / normal transcode).
-2. **Edited** — a stream produced by the server with sidecar `.corr.json` mute/skip baked in.
+2. **Edited** — a stream produced by the server with sidecar `.corr.json` mute/zoom/blur/skip baked in.
 
 Primary actions:
 
 - **Mute** — silence audio for a range; video continues (does not change duration).
+- **Zoom** — punch in: crop a region and scale it to fill the frame (does not change duration).
+- **Blur** — box-blur the frame or a region (does not change duration).
 - **Skip** — remove that range from the delivered timeline (cut / concat), not client seek.
 
-**Timeline rule:** Non-length-altering modifications (mute) are applied before length-altering modifications (skip/cut, and later crop). Every edit’s `start` / `end` is on the original source runtime; times are never rewritten after cuts or crops.
+**Timeline rule:** Non-length-altering modifications (mute, zoom, blur) are applied before length-altering modifications (skip/cut, and later crop). Every edit’s `start` / `end` is on the original source runtime; times are never rewritten after cuts or crops. Zoom and blur share one video-effect stage (timed overlay) so they can be combined in sidecar order.
 
 **Pause is out of scope and removed (Phase 0).** Extra `action` values in corr.json are ignored until implemented (e.g. scene markers / POIs).
 
@@ -48,10 +50,11 @@ Optional later work: publish EDL ranges as MediaSegments so stock clients can sh
 
 | Area | Status |
 |------|--------|
-| corr.json parse (mute / skip; other actions ignored) | Done |
-| Client Seek skip | **Removed** — cuts are server-side mute-then-cut |
-| Server mute via FFmpeg | Done — mute-only `-af`, or inside edit graph when cuts exist |
-| Server skip (cut) | Done (Phase 3) — `ISessionMediaEditGraphProvider` mute-then-cut `filter_complex` |
+| corr.json parse (mute / zoom / blur / skip; other actions ignored) | Done |
+| Client Seek skip | **Removed** — cuts are server-side effects-then-cut |
+| Server mute via FFmpeg | Done — mute-only `-af`, or inside edit graph when zoom/blur/cuts exist |
+| Server zoom / boxblur | Done — shared original-timeline video-effect overlays in the edit graph |
+| Server skip (cut) | Done (Phase 3) — `ISessionMediaEditGraphProvider` effects-then-cut `filter_complex` |
 | Dual version (original vs edited) | Done (Phase 2) — Original + `{Title} (Edited)` MediaSources; edits only on Edited |
 | Per-range user overrides | Not implemented |
 | Core overlay | Mute `-af` + edit-graph hooks; CorrMedia registers both providers |
@@ -115,7 +118,7 @@ EDL mute / mute-then-cut / force-HLS apply **only** when `MediaSourceId` is the 
 
 **Goal:** Skip ranges shorten the **EDL-applied** timeline (content removed), matching “edited version” expectations.
 
-Application order: **mute on the original timeline, then cut** (omit skip ranges via trim/concat). Sidecar times stay on the original source; they are not rewritten after cuts.
+Application order: **mute / zoom / blur on the original timeline, then cut** (omit skip ranges via trim/concat). Sidecar times stay on the original source; they are not rewritten after cuts.
 
 - [x] Map skip ranges to FFmpeg mute-then-cut `filter_complex` (`EdlFilterComplexBuilder` + `ISessionMediaEditGraphProvider`).
 - [x] Timeline semantics: muted ranges keep duration; skipped ranges remove duration.
@@ -167,7 +170,7 @@ Phase 2 is next so clients can still choose an untouched original.
 ## Success criteria (north star)
 
 1. Library item with a sidecar `.corr.json` exposes **Original** and **Edited** playback.
-2. Edited applies **mute** and **skip** in the server encode; no client Seek/Mute/Pause required for those actions.
+2. Edited applies **mute**, **zoom**, **blur**, and **skip** in the server encode; no client Seek/Mute/Pause required for those actions.
 3. Original playback is bit-identical in intent to today’s normal Jellyfin playback (no sidecar side effects).
 4. Users can later narrow which rules apply without editing the `.corr.json` file.
 5. Pause is not part of the product.
@@ -179,7 +182,7 @@ Phase 2 is next so clients can still choose an untouched original.
 - Exact dual-delivery API/UX (extra `MediaSource` vs playback flag vs other).
 - Whether EDL-applied is always transcoded, or only when mute/skip ranges remain after filters.
 - Whether to keep a thin patched Jellyfin long-term or upstream extension points.
-- Additional corr.json `action` types beyond mute/skip.
+- Additional corr.json `action` types beyond mute/zoom/blur/skip.
 - Whether MediaSegments are published for the original version, the edited version, both, or neither.
 
 Update this file as phases complete or decisions land.

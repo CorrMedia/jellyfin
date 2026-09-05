@@ -3,7 +3,7 @@ Server-side mute + cut: Jellyfin core overlay (10.11.11)
 
 Adds:
 - ISessionAudioFilterProvider — mute-only -af injection
-- ISessionMediaEditGraphProvider — mute-then-cut -filter_complex (mute first, then cut; times on original source)
+- ISessionMediaEditGraphProvider — effects-then-cut -filter_complex (mute/zoom/blur first, then cut; times on original source)
 - ISessionMuteRangeLoader — pre-stream sidecar load (Edited MediaSourceId only)
 - ISessionEdlDeliveryHint — Edited detection, PreferEdl sort, force HLS when cuts exist
 - EncodingHelper / VideosController / DynamicHlsController / DynamicHlsHelper / StreamingHelpers / MediaInfoHelper / UserLibraryController wiring

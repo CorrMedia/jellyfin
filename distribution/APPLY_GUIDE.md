@@ -36,15 +36,16 @@ Plugins build against patched core when `jellyfin-source` exists in this repo.
 
 ### 4. Run Jellyfin
 
-Enable CorrMedia. Place `{stem}.corr.json` next to media (`action`: `mute` or `skip`). Times are on the original source timeline; mute is applied before skip/cut.
+Enable CorrMedia. Place `{stem}.corr.json` next to media (`action`: `mute`, `zoom`, `blur`, or `skip`). Times are on the original source timeline; mute/zoom/blur are applied before skip/cut.
 
 ## Validation
 
 - PlaybackInfo for an item with `.corr.json` should list **Original** and **`{Title} (Edited)`** (Edited first when Prefer Edited is on).
 - Item details **Version** dropdown should show both names (same as multi-file versions UX).
 - Play **Original**: untouched; no mute filter / edit graph in FFmpeg logs.
-- Play **Edited**: mute and/or mute-then-cut; cuts force HLS; playhead advances through omitted ranges.
+- Play **Edited**: mute, zoom/blur, and/or effects-then-cut; cuts force HLS; playhead advances through omitted ranges.
 - Mute-only Edited: logs show `SessionAudioFilterProvider` and FFmpeg `volume=...eval=frame`.
+- Edited with zoom/blur (no skips): logs show `SessionMediaEditGraphProvider` / `filter_complex` with overlay.
 - Edited with skips: logs show `SessionMediaEditGraphProvider` / `filter_complex`.
 
 ## Pass/fail signals
@@ -57,6 +58,8 @@ Enable CorrMedia. Place `{stem}.corr.json` next to media (`action`: `mute` or `s
 | Dual sources | Original + Edited in PlaybackInfo | Only one source / wrong name |
 | Original | No corr.json filters | Mute/cut on Original |
 | Edited mute | Silent audio in mute ranges | Audio still audible |
+| Edited zoom | Punched-in region fills the frame in the range | Full frame unchanged |
+| Edited blur | Region or frame is blurred in the range | No blur |
 | Edited skip | Content omitted; continuous timeline | Original segment still plays |
 | Logs | Mute filter or edit-graph `filter_complex` on Edited only | Filter on Original or stream copy on Edited |
 
@@ -66,7 +69,7 @@ Enable CorrMedia. Place `{stem}.corr.json` next to media (`action`: `mute` or `s
 .\scripts\build-and-run-patched-docker.ps1
 ```
 
-Open **http://localhost:18096**. Put media + `.corr.json` in `docker\jellyfin\media`.
+Open **http://localhost:18096**. Library media lives in `docker\jellyfin\media`. The test clip sidecar is bind-mounted from repo-root `test-movie.corr.json`, so editing that file is what Edited playback reads.
 
 ## Rollback
 

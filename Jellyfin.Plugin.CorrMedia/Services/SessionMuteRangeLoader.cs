@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services
 {
     /// <summary>
-    /// Loads corr.json mute/skip into <see cref="EdlEditStore"/> before the first stream request,
+    /// Loads corr.json edits into <see cref="EdlEditStore"/> before the first stream request,
     /// only when the client selected the Edited media source.
     /// </summary>
     public sealed class SessionMuteRangeLoader : ISessionMuteRangeLoader
@@ -78,23 +78,24 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 return Task.CompletedTask;
             }
 
-            var (mutes, skips) = CorrFile.ParseMuteAndSkip(corrPath);
-            if (mutes.Count == 0 && skips.Count == 0)
+            var edits = CorrFile.Parse(corrPath);
+            if (!edits.HasPlaybackEdits)
             {
                 return Task.CompletedTask;
             }
 
             _edlEditStore.SetPlan(
-                new EdlEditPlan(mutes, skips),
+                new EdlEditPlan(edits.Mutes, edits.Skips, edits.VideoEffects),
                 playSessionId,
                 deviceId,
                 session?.Id,
                 session?.DeviceId);
 
             _logger.LogDebug(
-                "SessionMuteRangeLoader: Edited source mutes={MuteCount} skips={SkipCount} PlaySessionId={PlaySessionId} MediaSourceId={MediaSourceId}",
-                mutes.Count,
-                skips.Count,
+                "SessionMuteRangeLoader: Edited source mutes={MuteCount} skips={SkipCount} videoEffects={VideoEffectCount} PlaySessionId={PlaySessionId} MediaSourceId={MediaSourceId}",
+                edits.Mutes.Count,
+                edits.Skips.Count,
+                edits.VideoEffects.Count,
                 playSessionId ?? "(null)",
                 mediaSourceId);
 

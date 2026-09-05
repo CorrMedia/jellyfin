@@ -49,19 +49,20 @@ public sealed class EdlMediaSourceProvider : IMediaSourceProvider
             return Task.FromResult(Enumerable.Empty<MediaSourceInfo>());
         }
 
-        var (mutes, skips) = CorrFile.ParseMuteAndSkip(corrPath);
-        if (mutes.Count == 0 && skips.Count == 0)
+        var edits = CorrFile.Parse(corrPath);
+        if (!edits.HasPlaybackEdits)
         {
             return Task.FromResult(Enumerable.Empty<MediaSourceInfo>());
         }
 
-        var source = BuildEditedSource(item, skips);
+        var source = BuildEditedSource(item, edits.Skips);
         _logger.LogInformation(
-            "Added Edited media source {MediaSourceId} for {ItemName} (mutes={Mutes} skips={Skips})",
+            "Added Edited media source {MediaSourceId} for {ItemName} (mutes={Mutes} skips={Skips} videoEffects={VideoEffects})",
             source.Id,
             source.Name,
-            mutes.Count,
-            skips.Count);
+            edits.Mutes.Count,
+            edits.Skips.Count,
+            edits.VideoEffects.Count);
 
         return Task.FromResult<IEnumerable<MediaSourceInfo>>([source]);
     }

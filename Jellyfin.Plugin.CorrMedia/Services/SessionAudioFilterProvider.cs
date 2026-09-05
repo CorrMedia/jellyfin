@@ -11,7 +11,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services;
 
 /// <summary>
 /// Supplies session-scoped FFmpeg mute filters when there is no cut graph (mute-only EDL).
-/// When skips exist, mute is applied inside <see cref="SessionMediaEditGraphProvider"/> instead.
+/// When skips or video effects exist, mute is applied inside <see cref="SessionMediaEditGraphProvider"/> instead.
 /// </summary>
 public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEncoding.ISessionAudioFilterProvider
 {
@@ -47,8 +47,8 @@ public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEn
             return null;
         }
 
-        // Cuts own mute inside filter_complex (NLE mute-then-cut).
-        if (plan.HasCuts)
+        // Cuts and video effects own mute inside filter_complex.
+        if (plan.NeedsEditGraph)
         {
             return null;
         }
