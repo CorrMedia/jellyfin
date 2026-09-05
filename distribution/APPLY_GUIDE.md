@@ -18,7 +18,7 @@ From this repo root:
 .\scripts\apply-core-overlay.ps1 -JellyfinSourcePath C:\path\to\jellyfin
 ```
 
-You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionEdlDeliveryHint`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `MediaInfoHelper`, and `ApplicationHost`.
+You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionEdlDeliveryHint`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `MediaInfoHelper`, `DtoService`, `MediaSourceManager`, and `ApplicationHost`.
 
 ### 2. Build Jellyfin
 
@@ -40,10 +40,12 @@ Enable CorrMedia. Place `.edl` files next to media (`1` = mute, `3` = skip).
 
 ## Validation
 
-- Play an item with mute and/or skip ranges (transcode is forced when EDL applies; cuts force HLS).
-- Mute-only: logs show `SessionAudioFilterProvider` and FFmpeg `volume=...eval=frame`.
-- With skips: logs show `SessionMediaEditGraphProvider` / `filter_complex` with mute then trim/concat.
-- Playhead should advance continuously through former skip ranges (content omitted).
+- PlaybackInfo for an item with `.edl` should list **Original** and **`{Title} (Edited)`** (Edited first when Prefer Edited is on).
+- Item details **Version** dropdown should show both names (same as multi-file versions UX).
+- Play **Original**: untouched; no mute filter / edit graph in FFmpeg logs.
+- Play **Edited**: mute and/or mute-then-cut; cuts force HLS; playhead advances through omitted ranges.
+- Mute-only Edited: logs show `SessionAudioFilterProvider` and FFmpeg `volume=...eval=frame`.
+- Edited with skips: logs show `SessionMediaEditGraphProvider` / `filter_complex`.
 
 ## Pass/fail signals
 
@@ -52,9 +54,11 @@ Enable CorrMedia. Place `.edl` files next to media (`1` = mute, `3` = skip).
 | Core overlay | Script copies listed files | Missing files / apply errors |
 | Jellyfin build | Build succeeded | Restore/build errors |
 | Plugin deploy | CorrMedia DLL in plugins | Build/copy errors |
-| Mute at runtime | Silent audio in mute ranges | Audio still audible |
-| Skip at runtime | Content omitted; continuous timeline | Original segment still plays |
-| Logs | Mute filter or edit-graph `filter_complex` | No filter; stream copy |
+| Dual sources | Original + Edited in PlaybackInfo | Only one source / wrong name |
+| Original | No EDL filters | Mute/cut on Original |
+| Edited mute | Silent audio in mute ranges | Audio still audible |
+| Edited skip | Content omitted; continuous timeline | Original segment still plays |
+| Logs | Mute filter or edit-graph `filter_complex` on Edited only | Filter on Original or stream copy on Edited |
 
 ## Docker
 

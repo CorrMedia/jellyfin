@@ -2024,7 +2024,12 @@ public class DynamicHlsController : BaseJellyfinApiController
     {
         foreach (var loader in _muteRangeLoaders ?? Array.Empty<MediaBrowser.Controller.MediaEncoding.ISessionMuteRangeLoader>())
         {
-            await loader.EnsureMuteRangesLoadedAsync(streamingRequest.PlaySessionId, streamingRequest.DeviceId, itemId, cancellationToken).ConfigureAwait(false);
+            await loader.EnsureMuteRangesLoadedAsync(
+                streamingRequest.PlaySessionId,
+                streamingRequest.DeviceId,
+                itemId,
+                streamingRequest.MediaSourceId,
+                cancellationToken).ConfigureAwait(false);
         }
 
         var playSessionId = streamingRequest.PlaySessionId ?? string.Empty;
@@ -2046,11 +2051,11 @@ public class DynamicHlsController : BaseJellyfinApiController
     /// <summary>
     /// Ensures EDL mute ranges are loaded for the session, then returns true when the session has server-side mute ranges; caller should set AllowAudioStreamCopy = false so the mute filter is applied.
     /// </summary>
-    private async Task<bool> SessionHasMuteRangesAsync(string? playSessionId, string? deviceId, string? itemId, CancellationToken cancellationToken)
+    private async Task<bool> SessionHasMuteRangesAsync(string? playSessionId, string? deviceId, string? itemId, string? mediaSourceId, CancellationToken cancellationToken)
     {
         foreach (var loader in _muteRangeLoaders ?? Array.Empty<MediaBrowser.Controller.MediaEncoding.ISessionMuteRangeLoader>())
         {
-            await loader.EnsureMuteRangesLoadedAsync(playSessionId, deviceId, itemId, cancellationToken).ConfigureAwait(false);
+            await loader.EnsureMuteRangesLoadedAsync(playSessionId, deviceId, itemId, mediaSourceId, cancellationToken).ConfigureAwait(false);
         }
 
         return _encodingHelper.HasSessionAudioFilterForRequest(playSessionId ?? string.Empty, deviceId ?? string.Empty)

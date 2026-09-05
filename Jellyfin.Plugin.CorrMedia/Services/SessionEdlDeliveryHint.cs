@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services;
 
 /// <summary>
-/// Forces HLS for items with EDL skip/cut ranges so clients can seek via segments.
+/// Forces HLS for Edited sources with EDL skip/cut ranges so clients can seek via segments.
 /// </summary>
 public sealed class SessionEdlDeliveryHint : ISessionEdlDeliveryHint
 {
@@ -25,12 +25,25 @@ public sealed class SessionEdlDeliveryHint : ISessionEdlDeliveryHint
     {
         _libraryManager = libraryManager ?? throw new ArgumentNullException(nameof(libraryManager));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _logger.LogInformation("SessionEdlDeliveryHint registered (force HLS when EDL has cuts)");
+        _logger.LogInformation("SessionEdlDeliveryHint registered (HLS only for Edited + cuts)");
     }
 
     /// <inheritdoc />
-    public bool RequiresHls(string? itemId)
+    public bool IsEdlAppliedMediaSource(string? mediaSourceId)
+        => EdlMediaSourceIds.IsEdited(mediaSourceId);
+
+    /// <inheritdoc />
+    public bool PreferEdlAppliedMediaSources()
+        => Plugin.Instance?.Configuration?.PreferEdlApplied ?? true;
+
+    /// <inheritdoc />
+    public bool RequiresHls(string? itemId, string? mediaSourceId)
     {
+        if (!EdlMediaSourceIds.IsEdited(mediaSourceId))
+        {
+            return false;
+        }
+
         if (string.IsNullOrEmpty(itemId) || !Guid.TryParse(itemId, out var guid))
         {
             return false;

@@ -50,7 +50,7 @@ Optional later work: publish EDL ranges as MediaSegments so stock clients can sh
 | Client Seek skip | **Removed** — cuts are server-side mute-then-cut |
 | Server mute via FFmpeg | Done — mute-only `-af`, or inside edit graph when cuts exist |
 | Server skip (cut) | Done (Phase 3) — `ISessionMediaEditGraphProvider` mute-then-cut `filter_complex` |
-| Dual version (original vs EDL) | Not implemented — EDL-applied is forced when sidecar `.edl` has ranges |
+| Dual version (original vs EDL) | Done (Phase 2) — Original + `{Title} (Edited)` MediaSources; EDL only on Edited |
 | Per-range user overrides | Not implemented |
 | Core overlay | Mute `-af` + edit-graph hooks; CorrMedia registers both providers |
 
@@ -88,29 +88,24 @@ See `distribution/APPLY_GUIDE.md` for the patched-server path.
 
 ---
 
-### Phase 2 — Dual delivery (original vs EDL-applied)
+### Phase 2 — Dual delivery (original vs EDL-applied) ✅
 
 **Goal:** The system can offer **two versions** of a movie; user (or client) chooses.
 
-Design sketch (implementation may vary):
+Implemented via Jellyfin multi-source UX:
 
-- **Version A — Original:** normal Jellyfin media source; no EDL filters/cuts.
-- **Version B — EDL-applied:** dedicated media source / stream options that force transcoding with EDL graph attached.
+- **Original** — static media source; no EDL mute/cut/HLS.
+- **Edited** — dynamic `IMediaSourceProvider` source: `Id = {itemId:N}_edl`, `Name = "{jellyfinSourceName} (Edited)"` (same label Jellyfin uses for the file, plus ` (Edited)`), DirectPlay/Stream off, `RunTimeTicks` shortened by skip totals.
 
-Possible UX / API shapes (pick one in design spike):
+EDL mute / mute-then-cut / force-HLS apply **only** when `MediaSourceId` is the Edited source.
 
-1. Extra `MediaSource` (e.g. “Original” / “Edited”) on the item.
-2. Playback flag / profile / plugin API that clients pass when starting playback.
-3. Virtual item or linked alternate version (heavier; avoid unless needed).
+- [x] Extra `MediaSource` (`EdlMediaSourceProvider`) when sidecar `.edl` has mute and/or skip.
+- [x] Gate loaders, filters, edit graph, and HLS hints on Edited `MediaSourceId`.
+- [x] Config `PreferEdlApplied` (default **true**) so Edited sorts first for clients that take `[0]`.
+- [x] Shortened duration on Edited source for scrubbing.
+- [x] Item DTO `MediaSources` include dynamic providers (`DtoService` + PreferEdl sort) so web **Version** picker matches multi-file versions UX.
 
-Requirements:
-
-- [ ] Design spike: how Jellyfin clients discover and select the alternate source.
-- [ ] Wire “EDL-applied” selection to force-transcode + Phase 1 mute pipeline.
-- [ ] Default library behavior configurable (e.g. prefer original vs prefer EDL-applied).
-- [ ] No client Seek required for mute on version B.
-
-**Exit:** User can play the same movie once untouched and once with mutes applied, without changing the file on disk.
+**Exit:** User can play the same movie once untouched and once with mutes/cuts applied, without changing the file on disk.
 
 ---
 
@@ -125,7 +120,7 @@ NLE order: **mute on the original timeline, then cut** (omit skip ranges via tri
 - [x] Retire client Seek-based skip (EDL load only → `EdlEditStore`).
 - [x] Overlap: skip removes media; mute applies only on remaining keep segments (mute first on full timeline, then trim).
 - [ ] Mid-stream seek on the shortened timeline (best-effort today; encode often starts at 0 when cuts exist).
-- [ ] Dual delivery so original still plays full length without EDL (Phase 2).
+- [x] Dual delivery so original still plays full length without EDL (Phase 2).
 
 **Exit:** EDL with mute + skip produces a continuous edited stream; no client Seek.
 

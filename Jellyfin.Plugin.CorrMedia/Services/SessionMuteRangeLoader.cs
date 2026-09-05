@@ -13,7 +13,8 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services
 {
     /// <summary>
-    /// Loads EDL mute/skip into <see cref="EdlEditStore"/> before the first stream request.
+    /// Loads EDL mute/skip into <see cref="EdlEditStore"/> before the first stream request,
+    /// only when the client selected the Edited media source.
     /// </summary>
     public sealed class SessionMuteRangeLoader : ISessionMuteRangeLoader
     {
@@ -42,11 +43,24 @@ namespace Jellyfin.Plugin.CorrMedia.Services
         }
 
         /// <inheritdoc />
-        public Task EnsureMuteRangesLoadedAsync(string? playSessionId, string? deviceId, string? itemId, CancellationToken cancellationToken)
+        public Task EnsureMuteRangesLoadedAsync(
+            string? playSessionId,
+            string? deviceId,
+            string? itemId,
+            string? mediaSourceId,
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var session = FindSession(playSessionId, deviceId);
+
+            // Original (or unknown) source: clear any prior Edited plan so mute/cut cannot leak.
+            if (!EdlMediaSourceIds.IsEdited(mediaSourceId))
+            {
+                _edlEditStore.Clear(playSessionId, deviceId, session?.Id, session?.DeviceId);
+                return Task.CompletedTask;
+            }
+
             var path = session?.NowPlayingItem?.Path;
             if (string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(itemId) && Guid.TryParse(itemId, out var guid))
             {
@@ -78,10 +92,11 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 session?.DeviceId);
 
             _logger.LogDebug(
-                "SessionMuteRangeLoader: mutes={MuteCount} skips={SkipCount} PlaySessionId={PlaySessionId}",
+                "SessionMuteRangeLoader: Edited source mutes={MuteCount} skips={SkipCount} PlaySessionId={PlaySessionId} MediaSourceId={MediaSourceId}",
                 mutes.Count,
                 skips.Count,
-                playSessionId ?? "(null)");
+                playSessionId ?? "(null)",
+                mediaSourceId);
 
             return Task.CompletedTask;
         }

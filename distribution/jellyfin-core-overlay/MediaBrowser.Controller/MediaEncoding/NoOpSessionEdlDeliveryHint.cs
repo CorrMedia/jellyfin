@@ -8,5 +8,11 @@ namespace MediaBrowser.Controller.MediaEncoding;
 public sealed class NoOpSessionEdlDeliveryHint : ISessionEdlDeliveryHint
 {
     /// <inheritdoc />
-    public bool RequiresHls(string? itemId) => false;
+    public bool IsEdlAppliedMediaSource(string? mediaSourceId) => false;
+
+    /// <inheritdoc />
+    public bool RequiresHls(string? itemId, string? mediaSourceId) => false;
+
+    /// <inheritdoc />
+    public bool PreferEdlAppliedMediaSources() => false;
 }

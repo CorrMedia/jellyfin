@@ -4,17 +4,18 @@ A Jellyfin plugin that applies EDL (Edit Decision List) **mute** and **skip** ac
 
 ## Features
 
+- **Dual delivery** — When a sidecar `.edl` exists, PlaybackInfo offers **Original** plus **`{sourceName} (Edited)`** (Jellyfin’s normal version label + ` (Edited)`); mute/cut apply only to Edited
 - **Skip segments** — Server-side cut (omit from encode) on **patched Jellyfin**; no client Seek
 - **Mute audio** — Server-side FFmpeg mute (`-af` when mute-only; inside mute-then-cut graph when skips exist)
 - **Mixed actions** — Mute then cut in NLE order from the same `.edl`
-- **Session management** — Cleanup and state tracking across sessions
+- **Prefer Edited** — Config default puts Edited first for clients that take the first media source
 - **Backward compatibility** — Skip-only EDL files (two columns, or type `3`) continue to work
 
 **Pause is not supported.** Classic EDL type `2` (scene marker) is ignored.
 
 ## How It Works
 
-For each video being played, the plugin checks for a `.edl` file with the same name. If present, it parses mute/skip ranges and applies them during playback.
+For each video, the plugin checks for a `.edl` file with the same name. If present, it adds an Edited media source and (when that source is selected) applies mute/skip during encode.
 
 Example: watching `/media/movies/MyMovie.mkv` requires `/media/movies/MyMovie.edl`.
 
@@ -67,22 +68,22 @@ If the third column is omitted, the range is treated as **skip**.
 
 ## Configuration
 
-- **Session Check Interval** — How often to refresh mute ranges and check for skip (default: 50ms)
+- **Prefer Edited when EDL exists** — Default **on**. Sorts `{Title} (Edited)` ahead of Original for naive clients; turn off to prefer Original. Explicit source pickers still work either way.
+- **Session Check Interval** — Legacy setting (plans load on Edited stream requests).
 
 ## Compatibility
 
-* Tested on Jellyfin 10.10.7
-* Web, mobile, and TV clients
+* Tested on Jellyfin 10.10.7 / patched 10.11.x overlay
+* Web, mobile, and TV clients that honor `MediaSourceId`
 * Backward compatible with existing skip-only EDL files
 
 ## Known Limitations
 
-* **Mute requires patched Jellyfin** (core overlay). On stock Jellyfin, mute ranges are stored but not applied to FFmpeg.
-* Client Seek for skip is **transitional** (see roadmap Phase 3)
-* Direct play / audio copy is forced off when mute ranges exist (CPU cost)
-* No frame-perfect accuracy for skip polling
+* **Mute/cut require patched Jellyfin** (core overlay). On stock Jellyfin, the Edited source may appear but filters are not applied.
+* Edited source forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability
+* Edited `RunTimeTicks` is original duration minus skip totals (approximate for scrubbing)
 * EDL files must sit beside media files
-* Dual “original vs EDL-applied” selection is not implemented yet (Phase 2)
+* Per-range toggles are not implemented yet (Phase 4)
 
 ## EDL File Tips
 

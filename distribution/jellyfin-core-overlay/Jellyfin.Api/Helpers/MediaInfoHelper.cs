@@ -267,15 +267,27 @@ public class MediaInfoHelper
             streamInfo.PlaySessionId = playSessionId;
             streamInfo.StartPositionTicks = startTimeTicks;
 
-            var forceEdlHls = item is Video
-                && _edlDeliveryHints.Any(h => h.RequiresHls(item.Id.ToString("N", CultureInfo.InvariantCulture)));
+            var itemIdN = item.Id.ToString("N", CultureInfo.InvariantCulture);
+            var isEdlSource = item is Video
+                && _edlDeliveryHints.Any(h => h.IsEdlAppliedMediaSource(mediaSource.Id));
+            if (isEdlSource)
+            {
+                // Edited sources must never DirectPlay/DirectStream (would bypass mute/cut).
+                mediaSource.SupportsDirectPlay = false;
+                mediaSource.SupportsDirectStream = false;
+                mediaSource.SupportsTranscoding = true;
+            }
+
+            var forceEdlHls = isEdlSource
+                && _edlDeliveryHints.Any(h => h.RequiresHls(itemIdN, mediaSource.Id));
             if (forceEdlHls)
             {
                 ApplyEdlHlsDelivery(streamInfo, mediaSource, profile);
                 allowVideoStreamCopy = false;
                 allowAudioStreamCopy = false;
                 _logger.LogInformation(
-                    "Forcing HLS for EDL-cut item {ItemId} (progressive cannot seek)",
+                    "Forcing HLS for Edited EDL-cut source {MediaSourceId} item {ItemId}",
+                    mediaSource.Id,
                     item.Id);
             }
 
@@ -380,8 +392,19 @@ public class MediaInfoHelper
     public void SortMediaSources(PlaybackInfoResponse result, long? maxBitrate)
     {
         var originalList = result.MediaSources.ToList();
+        var preferEdl = _edlDeliveryHints.Any(h => h.PreferEdlAppliedMediaSources());
 
         result.MediaSources = result.MediaSources.OrderBy(i =>
+            {
+                // Prefer Edited (*_edl) ahead of Original when plugin config requests it.
+                if (preferEdl && _edlDeliveryHints.Any(h => h.IsEdlAppliedMediaSource(i.Id)))
+                {
+                    return 0;
+                }
+
+                return preferEdl ? 1 : 0;
+            })
+            .ThenBy(i =>
             {
                 // Nothing beats direct playing a file
                 if (i.SupportsDirectPlay && i.Protocol == MediaProtocol.File)

@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.CorrMedia.Services;
@@ -62,8 +60,8 @@ public sealed class EdlEditStore
             }
         }
 
-        var all = _plans.Values.Distinct().ToList();
-        return all.Count == 1 ? all[0] : null;
+        // Exact key match only — never fall back to a lone plan (dual Original/Edited delivery).
+        return null;
     }
 
     /// <summary>

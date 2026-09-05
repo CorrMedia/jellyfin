@@ -434,11 +434,16 @@ public class VideosController : BaseJellyfinApiController
             EnableAudioVbrEncoding = enableAudioVbrEncoding
         };
 
-        // EDL: load ranges, then force transcoding when mute and/or cut graph is needed.
+        // EDL: load ranges for Edited source only, then force transcoding when mute and/or cut graph is needed.
         var itemIdStr = streamingRequest.Id != default ? streamingRequest.Id.ToString("N") : null;
         foreach (var loader in _muteRangeLoaders ?? Array.Empty<MediaBrowser.Controller.MediaEncoding.ISessionMuteRangeLoader>())
         {
-            await loader.EnsureMuteRangesLoadedAsync(streamingRequest.PlaySessionId, streamingRequest.DeviceId, itemIdStr, cancellationTokenSource.Token).ConfigureAwait(false);
+            await loader.EnsureMuteRangesLoadedAsync(
+                streamingRequest.PlaySessionId,
+                streamingRequest.DeviceId,
+                itemIdStr,
+                streamingRequest.MediaSourceId,
+                cancellationTokenSource.Token).ConfigureAwait(false);
         }
 
         var hasEditGraph = _encodingHelper.HasSessionEditGraphForRequest(streamingRequest.PlaySessionId, streamingRequest.DeviceId);
