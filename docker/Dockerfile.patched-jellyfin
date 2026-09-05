@@ -1,0 +1,35 @@
+# Build patched Jellyfin server from jellyfin-source and layer it on top of the
+# official image (for ffmpeg, web UI, and runtime deps). Use from repo root with:
+#   docker build -f docker/Dockerfile.patched-jellyfin -t jellyfin-patched:local .
+# (Build context must include jellyfin-source and docker/.)
+
+# Use official image for ffmpeg, jellyfin-web, and runtime env
+ARG JELLYFIN_BASE=jellyfin/jellyfin:10.10.7
+FROM ${JELLYFIN_BASE} AS base
+
+# Build the patched server (same repo layout as jellyfin-packaging expects).
+# If you see "TLS handshake timeout" pulling this image, it is a network/Docker issue (proxy, VPN, or MCR reachability). Retry or try: docker pull mcr.microsoft.com/dotnet/sdk:9.0
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy entire jellyfin source (context is repo root; jellyfin-source is at ./jellyfin-source)
+COPY jellyfin-source/ .
+
+# Restore and publish for linux-x64, self-contained so we don't depend on base image runtime
+RUN dotnet restore Jellyfin.sln \
+    && dotnet publish Jellyfin.Server/Jellyfin.Server.csproj \
+        -c Release \
+        -r linux-x64 \
+        --self-contained true \
+        -o /server \
+        -p:PublishSingleFile=false \
+        -p:TreatWarningsAsErrors=false
+
+# Overlay our server binaries onto the official image (keeps jellyfin-web and ffmpeg from base)
+FROM base
+COPY --from=build /server/ /jellyfin/
+
+# Ensure entrypoint is still the server binary
+EXPOSE 8096
+VOLUME /config /cache
+ENTRYPOINT ["/jellyfin/jellyfin"]

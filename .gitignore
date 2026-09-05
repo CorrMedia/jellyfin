@@ -3,3 +3,11 @@ obj/
 .vs/
 .idea/
 artifacts
+docker/jellyfin/config/
+docker/jellyfin/cache/
+docker/jellyfin/media/
+docker/jellyfin/plugins/
+jellyfin-source/
+.docker-client/
+debug-*.log
+test-movie.mkv

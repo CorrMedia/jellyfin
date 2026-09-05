@@ -1,0 +1,14 @@
+# Example EDL file with mute actions only
+# Mutes audio during commercial breaks
+
+# Commercial break 1 (30 minutes in)
+1800.00 1860.00 1
+
+# Commercial break 2 (1 hour in)
+3600.00 3660.00 1
+
+# Commercial break 3 (1.5 hours in)
+5400.00 5460.00 1
+
+# Commercial break 4 (2 hours in)
+7200.00 7260.00 1

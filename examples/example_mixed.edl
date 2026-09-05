@@ -1,0 +1,15 @@
+# Example EDL file with mixed mute + skip
+# Format: start_time end_time action_type
+# Action types: 1=mute, 2=scene marker (ignored), 3=skip
+
+# Mute audio for first 5 minutes (intro)
+0.00 300.00 1
+
+# Skip commercials from 5-10 minutes
+300.00 600.00 3
+
+# Scene marker at 20 minutes (ignored for playback)
+1200.00 1260.00 2
+
+# Mute audio for outro
+1800.00 2100.00 1

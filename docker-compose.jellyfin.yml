@@ -1,0 +1,18 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:10.10.7
+    container_name: jellyfin-plugin-test
+    restart: unless-stopped
+    ports:
+      - "18096:8096"
+      - "18920:8920"
+      - "17359:7359/udp"
+      - "11900:1900/udp"
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://localhost:18096
+    volumes:
+      - ./docker/jellyfin/config:/config
+      - ./docker/jellyfin/cache:/cache
+      - ./docker/jellyfin/media:/media
+      - ./docker/jellyfin/plugins:/config/plugins
+

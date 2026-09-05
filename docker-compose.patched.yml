@@ -1,0 +1,22 @@
+# Run patched Jellyfin (built from jellyfin-source) with plugins. Use after:
+#   .\scripts\build-and-run-patched-docker.ps1
+services:
+  jellyfin:
+    image: jellyfin-patched:local
+    container_name: jellyfin-patched-test
+    restart: unless-stopped
+    ports:
+      - "18096:8096"
+      - "18920:8920"
+      - "17359:7359/udp"
+      - "11900:1900/udp"
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://localhost:18096
+      # Agent debug: write NDJSON to workspace log file (mount workspace as /workspace)
+      - DEBUG_LOG_PATH=/workspace/debug-0c13be.log
+    volumes:
+      - ./docker/jellyfin/config:/config
+      - ./docker/jellyfin/cache:/cache
+      - ./docker/jellyfin/media:/media
+      - ./docker/jellyfin/plugins:/config/plugins
+      - .:/workspace

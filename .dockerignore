@@ -1,0 +1,11 @@
+# Reduce build context for patched Jellyfin image
+git
+.git
+**/bin
+**/obj
+**/.vs
+**/node_modules
+docker/jellyfin/config
+docker/jellyfin/cache
+docker/jellyfin/media
+docker/jellyfin/plugins

@@ -1,91 +1,113 @@
 # Jellyfin EDL Skipper Plugin
 
-A Jellyfin plugin that automatically skips specified portions of videos using `.edl` (Edit Decision List) files.
+A Jellyfin plugin that applies EDL (Edit Decision List) **mute** and **skip** actions. The product direction is **two deliveries** of the same item — untouched original vs server-side EDL-applied stream — not client Seek/Mute/Pause tricks. See [`ROADMAP.md`](ROADMAP.md).
 
 ## Features
 
-- Automatically seeks over time ranges defined in a `.edl` file during video playback.
-- Supports multiple skip segments per video.
-- Runs server-side and applies to all sessions.
-- Fast skip execution using a background timer.
-- EDL files are plain text files stored alongside media.
+- **Skip segments** — Server-side cut (omit from encode) on **patched Jellyfin**; no client Seek
+- **Mute audio** — Server-side FFmpeg mute (`-af` when mute-only; inside mute-then-cut graph when skips exist)
+- **Mixed actions** — Mute then cut in NLE order from the same `.edl`
+- **Session management** — Cleanup and state tracking across sessions
+- **Backward compatibility** — Skip-only EDL files (two columns, or type `3`) continue to work
 
-> ❗ This plugin **only supports skipping (EDL type 3)**. Audio will continue during skips (no muting).  
-> ❗ It does **not** support pausing, muting, or other EDL types (1 or 2).
-
----
+**Pause is not supported.** Classic EDL type `2` (scene marker) is ignored.
 
 ## How It Works
 
-For each video being played, the plugin checks if there’s a `.edl` file with the same name. If so, it will parse the skip ranges and automatically seek past those segments during playback.
+For each video being played, the plugin checks for a `.edl` file with the same name. If present, it parses mute/skip ranges and applies them during playback.
 
-For example, if you're watching:
+Example: watching `/media/movies/MyMovie.mkv` requires `/media/movies/MyMovie.edl`.
 
+### EDL File Format
+
+```text
+start_time end_time action_type
 ```
-/media/movies/MyMovie.mkv
-```
 
-You must also have an EDL file at:
+**Action types:**
 
-```
-/media/movies/MyMovie.edl
-````
+| Code | Meaning |
+|------|---------|
+| `1` | **Mute** — silence audio for the range |
+| `2` | **Scene marker** — ignored (reserved for future POI / MediaSegments) |
+| `3` | **Skip** — omit the range from the delivered stream (cut) |
 
-### Example `.edl` File
+If the third column is omitted, the range is treated as **skip**.
 
+### Example EDL Files
+
+**Skip-only (backward compatible):**
 ```text
 0.00 1200.00 3
 3600.00 5400.00 3
-````
+```
 
-This file means:
+**Mixed mute + skip:**
+```text
+0.00 300.00 1
+300.00 600.00 3
+1800.00 2100.00 1
+```
 
-* Skip from **0:00** to **20:00** (1200 seconds)
-* Skip from **1:00:00** to **1:30:00** (3600 to 5400 seconds)
-
-The third column (`3`) means **"cut/skip"**, which is the only supported action.
-
----
+**Mute during commercials:**
+```text
+1800.00 1860.00 1
+3600.00 3660.00 1
+```
 
 ## Installation
 
-1. Clone this repository or download the release.
-2. Build the plugin and place the `.dll` in your Jellyfin `plugins` folder.
-3. Restart Jellyfin.
-4. Place `.edl` files next to your videos with the same name and `.edl` extension.
+1. Clone this repository or download the release
+2. Build the plugin and place the `.dll` in your Jellyfin `plugins` folder
+3. Restart Jellyfin
+4. Configure the plugin in the Jellyfin dashboard
+5. Place `.edl` files next to your videos with the same name and `.edl` extension
 
----
+**Server-side mute (transcoding):** Requires a Jellyfin server built with the core overlay. See `distribution/APPLY_GUIDE.md`. Mute ranges are loaded in-process before the stream starts; AudioControl is not required.
+
+## Configuration
+
+- **Session Check Interval** — How often to refresh mute ranges and check for skip (default: 50ms)
 
 ## Compatibility
 
-* ✅ Tested on Jellyfin 10.10.7
-* ⚠️ Does not support mute or pause actions.
-
----
+* Tested on Jellyfin 10.10.7
+* Web, mobile, and TV clients
+* Backward compatible with existing skip-only EDL files
 
 ## Known Limitations
 
-* Cannot mute audio — only seeks forward.
-* Does not validate overlapping segments.
-* No web UI — configuration is entirely file-based.
-* This doesn't seem to work with non web based playback.
+* **Mute requires patched Jellyfin** (core overlay). On stock Jellyfin, mute ranges are stored but not applied to FFmpeg.
+* Client Seek for skip is **transitional** (see roadmap Phase 3)
+* Direct play / audio copy is forced off when mute ranges exist (CPU cost)
+* No frame-perfect accuracy for skip polling
+* EDL files must sit beside media files
+* Dual “original vs EDL-applied” selection is not implemented yet (Phase 2)
 
----
+## EDL File Tips
+
+- Use `#` for comments: `# Skip commercials`
+- Empty lines are ignored
+- Times are in seconds (decimals supported)
+- Action type `3` (skip) is the default if not specified
+- Type `2` lines are ignored
+- Filenames are case-sensitive and must match the video
+
+## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md): drop client tricks → solid server mute → dual delivery → server skip/cut → selective EDL compliance.
 
 ## Contributing
 
-PRs are welcome! If you'd like to add support for other EDL types, client muting, or GUI configuration, feel free to fork and contribute.
+PRs welcome. Prefer work aligned with the roadmap (server-side delivery over new client playback commands).
 
----
+## Changelog
 
-## Some more comments
+### v1.1.0 (in progress)
+- Mute (type 1) and skip (type 3); type 2 treated as ignored scene marker
+- Pause support removed
+- Phase 1: in-process server mute (MuteRangeStore + SessionAudioFilterProvider); AudioControl no longer required
+- Dual-delivery and server-side cut planned (roadmap)
 
-This is my first plugin for Jellyfin. I'm happy to add other features, some just couldn't be added because of plugin supports.
-
-
----
-
-```
-
-Let me know if you'd like me to also include a section for building instructions or contributing guidelines.
-```
+### v1.0.0.1
+- Initial release with skip-only functionality

@@ -1,0 +1,7 @@
+{
+  "name": "CorrMedia",
+  "description": "Applies EDL mute (server-side on patched Jellyfin) and skip during playback. Target: original vs EDL-applied delivery (see ROADMAP.md).",
+  "owner": "Jellyfin Community",
+  "version": "1.0.1.0",
+  "targetAbi": "10.10.7.0"
+}

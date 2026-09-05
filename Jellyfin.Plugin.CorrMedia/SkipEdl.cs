@@ -1,9 +1,11 @@
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
+using Jellyfin.Plugin.CorrMedia.Configuration;
+using Jellyfin.Plugin.CorrMedia.Services;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Session;
 using Microsoft.Extensions.Hosting;
@@ -12,183 +14,121 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia
 {
     /// <summary>
-    /// Plugin to automatically skip defined video segments using EDL (Edit Decision List) files.
+    /// Loads sidecar EDL plans into <see cref="EdlEditStore"/> for server-side mute-then-cut.
+    /// Does not drive the client playhead.
     /// </summary>
     public sealed class SkipEdl : IHostedService, IDisposable
     {
         private readonly ISessionManager _sessionManager;
         private readonly ILogger<SkipEdl> _logger;
-        private readonly System.Timers.Timer _timer;
-        private readonly HashSet<string> _skippedSessions = new();
+        private readonly System.Timers.Timer _sessionTimer;
+        private readonly PluginConfiguration _configuration;
+        private readonly EdlEditStore _edlEditStore;
+        private readonly ConcurrentDictionary<string, string> _lastPlanSignature = new();
         private bool _disposed;
-
-        private static readonly char[] EdlSeparators = { ' ', '\t' };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SkipEdl"/> class.
         /// </summary>
-        /// <param name="sessionManager">The session manager used to access playback sessions.</param>
-        /// <param name="logger">Logger instance for writing plugin logs.</param>
+        /// <param name="sessionManager">Session manager.</param>
+        /// <param name="logger">Logger.</param>
+        /// <param name="configuration">Config.</param>
+        /// <param name="edlEditStore">EDL store.</param>
         public SkipEdl(
             ISessionManager sessionManager,
-            ILogger<SkipEdl> logger)
+            ILogger<SkipEdl> logger,
+            PluginConfiguration configuration,
+            EdlEditStore edlEditStore)
         {
             _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _edlEditStore = edlEditStore ?? throw new ArgumentNullException(nameof(edlEditStore));
 
-            _timer = new System.Timers.Timer(100)
+            _sessionTimer = new System.Timers.Timer(_configuration.SessionCheckInterval)
             {
                 AutoReset = true
             };
-
-            _timer.Elapsed += OnTimerElapsed;
+            _sessionTimer.Elapsed += OnSessionTimerElapsed;
             _sessionManager.SessionEnded += OnSessionEnded;
         }
 
-        /// <summary>
-        /// Starts the plugin service.
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation token to stop the task.</param>
-        /// <returns>A completed task.</returns>
+        /// <inheritdoc />
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SkipEdl started.");
-            _timer.Start();
+            _logger.LogInformation(
+                "SkipEdl started — server-side EDL mute-then-cut via EdlEditStore (no client Seek).");
+            _sessionTimer.Start();
+            RefreshAllSessions();
             return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// Stops the plugin service.
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation token to stop the task.</param>
-        /// <returns>A completed task.</returns>
+        /// <inheritdoc />
         public Task StopAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SkipEdl stopping.");
-            _timer.Stop();
+            _sessionTimer.Stop();
             return Task.CompletedTask;
         }
 
-        private void OnTimerElapsed(object? sender, ElapsedEventArgs e)
+        private void OnSessionTimerElapsed(object? sender, ElapsedEventArgs e) => RefreshAllSessions();
+
+        private void RefreshAllSessions()
         {
             foreach (var session in _sessionManager.Sessions)
             {
-                var item = session.NowPlayingItem;
-                if (item?.Path is not { Length: > 0 })
+                var path = session.NowPlayingItem?.Path;
+                if (string.IsNullOrEmpty(path))
                 {
                     continue;
                 }
 
-                var edlPath = GetEdlPath(item.Path);
+                var edlPath = EdlFile.GetPath(path);
                 if (!File.Exists(edlPath))
                 {
                     continue;
                 }
 
-                var skipRanges = ParseEdlFile(edlPath);
-                if (skipRanges.Count > 0)
+                var (mutes, skips) = EdlFile.ParseMuteAndSkip(edlPath);
+                if (mutes.Count == 0 && skips.Count == 0)
                 {
-                    ApplySkipLogic(session, skipRanges);
+                    continue;
                 }
-            }
-        }
 
-        private void ApplySkipLogic(SessionInfo session, List<(long Start, long End)> skipRanges)
-        {
-            var playState = session.PlayState;
-            if (playState == null)
-            {
-                return;
-            }
-
-            var currentSeconds = playState.PositionTicks / TimeSpan.TicksPerSecond;
-
-            foreach (var (start, end) in skipRanges)
-            {
-                if (currentSeconds >= start && currentSeconds < end)
+                var signature = $"{mutes.Count}:{skips.Count}:{edlPath}";
+                if (_lastPlanSignature.TryGetValue(session.Id, out var prev)
+                    && string.Equals(prev, signature, StringComparison.Ordinal))
                 {
-                    _logger.LogInformation(
-                        "Skipping from {Start} to {End} for session {SessionId}",
-                        start,
-                        end,
-                        session.Id);
-
-                    _sessionManager.SendPlaystateCommand(
-                        session.Id,
-                        session.Id,
-                        new PlaystateRequest
-                        {
-                            Command = PlaystateCommand.Seek,
-                            ControllingUserId = session.UserId.ToString("N"),
-                            SeekPositionTicks = end * TimeSpan.TicksPerSecond
-                        },
-                        CancellationToken.None);
-
-                    break;
+                    continue;
                 }
+
+                _edlEditStore.SetPlan(new EdlEditPlan(mutes, skips), session.Id, session.DeviceId);
+                _lastPlanSignature[session.Id] = signature;
             }
-        }
-
-        private static string GetEdlPath(string mediaPath)
-        {
-            var basePath = Path.ChangeExtension(mediaPath, null);
-            return $"{basePath}.edl";
-        }
-
-        private static List<(long Start, long End)> ParseEdlFile(string edlPath)
-        {
-            var skipRanges = new List<(long, long)>();
-
-            foreach (var line in File.ReadLines(edlPath))
-            {
-                var parts = line.Trim().Split(EdlSeparators, StringSplitOptions.RemoveEmptyEntries);
-
-                if (parts.Length >= 2 &&
-                    double.TryParse(parts[0], out var start) &&
-                    double.TryParse(parts[1], out var end))
-                {
-                    skipRanges.Add(((long)start, (long)end));
-                }
-            }
-
-            return skipRanges;
         }
 
         private void OnSessionEnded(object? sender, SessionEventArgs e)
         {
-            if (e?.SessionInfo != null && _skippedSessions.Remove(e.SessionInfo.Id))
+            if (e?.SessionInfo is null)
             {
-                _logger.LogInformation("Session ended: cleared skip state for session {SessionId}", e.SessionInfo.Id);
+                return;
             }
+
+            var session = e.SessionInfo;
+            _lastPlanSignature.TryRemove(session.Id, out _);
+            _edlEditStore.Clear(session.Id, session.DeviceId);
         }
 
-        /// <summary>
-        /// Releases unmanaged resources and unregisters event handlers.
-        /// </summary>
+        /// <inheritdoc />
         public void Dispose()
-        {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
-        /// <summary>
-        /// Disposes of the timer and unregisters session event listeners.
-        /// </summary>
-        /// <param name="disposing">Indicates whether managed resources should be released.</param>
-        private void Dispose(bool disposing)
         {
             if (_disposed)
             {
                 return;
             }
 
-            if (disposing)
-            {
-                _timer?.Stop();
-                _timer?.Dispose();
-                _sessionManager.SessionEnded -= OnSessionEnded;
-            }
-
+            _sessionTimer.Stop();
+            _sessionTimer.Dispose();
+            _sessionManager.SessionEnded -= OnSessionEnded;
             _disposed = true;
         }
     }

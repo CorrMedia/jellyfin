@@ -1,0 +1,5 @@
+# Test EDL file - Skip only
+# Skip first 30 seconds, then skip from 2:00 to 2:30
+
+0.00 30.00 3
+120.00 150.00 3

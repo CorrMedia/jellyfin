@@ -10,15 +10,13 @@
             <div class="content-primary">
                 <form id="TemplateConfigForm">
 
-                    <!-- Existing fields ... -->
-
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="SessionCheckInterval">Session Check Interval (ms)</label>
                         <input id="SessionCheckInterval" name="SessionCheckInterval" type="number" is="emby-input" min="10" />
-                        <div class="fieldDescription">How often (in milliseconds) to check sessions. Default is 100 ms.</div>
+                        <div class="fieldDescription">How often (in milliseconds) to refresh mute ranges and check for skip (transitional client Seek). Default is 50 ms. Server-side mute uses in-process filters on patched Jellyfin.</div>
                     </div>
 
-                    <!-- Existing Save Button -->
+                    <!-- Save Button -->
                     <div>
                         <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                             <span>Save</span>
@@ -30,38 +28,23 @@
 
         <script type="text/javascript">
             var TemplateConfig = {
-                pluginUniqueId: 'eb5d7894-8eef-4b36-aa6f-5d124e828ce1'
+                pluginUniqueId: 'd477f9fe-bde6-467c-88ba-5336048f955c'
             };
 
             document.querySelector('#TemplateConfigPage')
                 .addEventListener('pageshow', function () {
-                    Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(TemplateConfig.pluginUniqueId).then(function (config) {
-                        document.querySelector('#Options').value = config.Options;
-                        document.querySelector('#AnInteger').value = config.AnInteger;
-                        document.querySelector('#TrueFalseSetting').checked = config.TrueFalseSetting;
-                        document.querySelector('#AString').value = config.AString;
-                        document.querySelector('#SessionCheckInterval').value = config.SessionCheckInterval || 100;
-                        Dashboard.hideLoadingMsg();
-                    });
+                    Dashboard.requestPluginConfiguration(TemplateConfig.pluginUniqueId)
+                        .then(function (config) {
+                            document.querySelector('#SessionCheckInterval').value = config.SessionCheckInterval || 50;
+                        });
                 });
 
             document.querySelector('#TemplateConfigForm')
                 .addEventListener('submit', function (e) {
-                    Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(TemplateConfig.pluginUniqueId).then(function (config) {
-                        config.Options = document.querySelector('#Options').value;
-                        config.AnInteger = document.querySelector('#AnInteger').value;
-                        config.TrueFalseSetting = document.querySelector('#TrueFalseSetting').checked;
-                        config.AString = document.querySelector('#AString').value;
-                        config.SessionCheckInterval = parseInt(document.querySelector('#SessionCheckInterval').value || "100");
-                        ApiClient.updatePluginConfiguration(TemplateConfig.pluginUniqueId, config).then(function (result) {
-                            Dashboard.processPluginConfigurationUpdateResult(result);
-                        });
-                    });
-
                     e.preventDefault();
-                    return false;
+                    Dashboard.savePluginConfiguration(TemplateConfig.pluginUniqueId, {
+                        SessionCheckInterval: parseInt(document.querySelector('#SessionCheckInterval').value) || 50
+                    });
                 });
         </script>
     </div>
