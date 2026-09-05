@@ -1,6 +1,6 @@
 # Apply guide: server-side mute + cut (patched Jellyfin + CorrMedia)
 
-Use this when you want to build Jellyfin with the EDL mute-then-cut extension and run **CorrMedia** (AudioControl is not required).
+Use this when you want to build Jellyfin with the EDL mute-then-cut extension and run **CorrMedia**.
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ From this repo root:
 .\scripts\apply-core-overlay.ps1 -JellyfinSourcePath C:\path\to\jellyfin
 ```
 
-You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, and `ApplicationHost`.
+You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionEdlDeliveryHint`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `MediaInfoHelper`, and `ApplicationHost`.
 
 ### 2. Build Jellyfin
 
@@ -36,14 +36,14 @@ Plugins build against patched core when `jellyfin-source` exists in this repo.
 
 ### 4. Run Jellyfin
 
-Enable CorrMedia. Place `.edl` files next to media (`1` = mute, `3` = skip). Remove any old AudioControl plugin folder if present.
+Enable CorrMedia. Place `.edl` files next to media (`1` = mute, `3` = skip).
 
 ## Validation
 
-- Play an item with mute and/or skip ranges (transcode is forced when EDL applies).
+- Play an item with mute and/or skip ranges (transcode is forced when EDL applies; cuts force HLS).
 - Mute-only: logs show `SessionAudioFilterProvider` and FFmpeg `volume=...eval=frame`.
 - With skips: logs show `SessionMediaEditGraphProvider` / `filter_complex` with mute then trim/concat.
-- Playhead should advance continuously through former skip ranges (content omitted); no client Seek.
+- Playhead should advance continuously through former skip ranges (content omitted).
 
 ## Pass/fail signals
 
@@ -53,7 +53,7 @@ Enable CorrMedia. Place `.edl` files next to media (`1` = mute, `3` = skip). Rem
 | Jellyfin build | Build succeeded | Restore/build errors |
 | Plugin deploy | CorrMedia DLL in plugins | Build/copy errors |
 | Mute at runtime | Silent audio in mute ranges | Audio still audible |
-| Skip at runtime | Content omitted; continuous timeline | Client Seek / loop / original segment still plays |
+| Skip at runtime | Content omitted; continuous timeline | Original segment still plays |
 | Logs | Mute filter or edit-graph `filter_complex` | No filter; stream copy |
 
 ## Docker

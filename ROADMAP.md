@@ -64,10 +64,10 @@ See `distribution/APPLY_GUIDE.md` for the patched-server path.
 
 **Goal:** Align code and docs with mute + skip only, server delivery.
 
-- [x] Remove **Pause** from `EdlAction`, `SkipEdl`, config UI, README, examples.
-- [x] Treat EDL type `2` as ignored scene marker (`EdlAction.SceneMarker`), not pause.
+- [x] Remove **Pause** from config UI, README, examples; EDL type `2` ignored as scene marker.
+- [x] Treat EDL type `2` as ignored scene marker, not pause.
 - [x] Document that client Seek/mute loops are transitional and will be removed once server delivery works.
-- [x] Mark AudioControl HTTP bridge and stub mute services as tech debt to collapse.
+- [x] Collapse AudioControl HTTP mute bridge into CorrMedia (AudioControl removed from the repo).
 
 **Exit:** Plugin no longer offers or documents pause; roadmap and README agree on dual-delivery vision.
 
@@ -80,9 +80,9 @@ See `distribution/APPLY_GUIDE.md` for the patched-server path.
 - [x] Keep / harden Jellyfin core overlay for `ISessionAudioFilterProvider` (+ mute loader / pending seek / HLS+progressive force-transcode).
 - [x] Apply mute filters on **all** relevant encode paths (HLS video + audio-only, progressive), not only progressive.
 - [x] **Force audio transcode** when mute ranges apply (`AllowAudioStreamCopy = false` via loader + `HasSessionAudioFilter*`).
-- [x] Load mute ranges before the first segment request (`SessionMuteRangeLoader` → in-process `MuteRangeStore`).
-- [x] Fold AudioControl filter provider into CorrMedia (`MuteRangeStore` + `SessionAudioFilterProvider`); drop HTTP `SetMuteRanges` / `MuteSession` happy path.
-- [x] Remove dead stubs (`MuteService`, `MuteController`, mute timer / client mute toggles). AudioControl plugin deprecated (do not deploy for mute).
+- [x] Load EDL before the first stream request (`SessionMuteRangeLoader` → in-process `EdlEditStore`).
+- [x] Fold mute into CorrMedia (`EdlEditStore` + `SessionAudioFilterProvider`); drop HTTP mute bridge.
+- [x] Remove dead client-mute stubs. AudioControl removed from the repo.
 
 **Exit:** Patched server + CorrMedia; item with mute-only EDL; playback silent in mute ranges on web HLS; logs show FFmpeg `volume=…:eval=frame`.
 

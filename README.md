@@ -63,7 +63,7 @@ If the third column is omitted, the range is treated as **skip**.
 4. Configure the plugin in the Jellyfin dashboard
 5. Place `.edl` files next to your videos with the same name and `.edl` extension
 
-**Server-side mute (transcoding):** Requires a Jellyfin server built with the core overlay. See `distribution/APPLY_GUIDE.md`. Mute ranges are loaded in-process before the stream starts; AudioControl is not required.
+**Server-side mute + cut (transcoding):** Requires a Jellyfin server built with the core overlay. See `distribution/APPLY_GUIDE.md`. EDL plans are loaded in-process before the stream starts.
 
 ## Configuration
 
@@ -106,8 +106,9 @@ PRs welcome. Prefer work aligned with the roadmap (server-side delivery over new
 ### v1.1.0 (in progress)
 - Mute (type 1) and skip (type 3); type 2 treated as ignored scene marker
 - Pause support removed
-- Phase 1: in-process server mute (MuteRangeStore + SessionAudioFilterProvider); AudioControl no longer required
-- Dual-delivery and server-side cut planned (roadmap)
+- Phase 1: in-process server mute (`EdlEditStore` + `SessionAudioFilterProvider`)
+- Phase 3: mute-then-cut via `ISessionMediaEditGraphProvider`; HLS forced when cuts exist so seeking reuses segments
+- Dual delivery (original vs EDL-applied): see [`ROADMAP.md`](ROADMAP.md)
 
 ### v1.0.0.1
 - Initial release with skip-only functionality

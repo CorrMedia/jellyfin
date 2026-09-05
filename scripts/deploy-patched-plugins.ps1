@@ -4,7 +4,7 @@
     Builds CorrMedia (with patched core ref when available) and copies it into a Jellyfin plugins folder.
 .DESCRIPTION
     Builds CorrMedia from this repo. When jellyfin-source exists, the plugin is built against the patched core (net9.0).
-    AudioControl is deprecated for mute (folded into CorrMedia); it is not deployed by this script.
+    Deploys CorrMedia only.
 .PARAMETER TargetPluginsPath
     Directory where Jellyfin looks for plugins.
 .PARAMETER RepoRoot
@@ -40,4 +40,4 @@ New-Item -ItemType Directory -Force -Path $skipTargetDir | Out-Null
 Copy-Item -Force $skipDll $skipTargetDir
 Copy-Item -Force (Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json') $skipTargetDir
 
-Write-Host "CorrMedia deployed to $TargetPluginsPath (AudioControl not required for Phase 1 mute)."
+Write-Host "CorrMedia deployed to $TargetPluginsPath."

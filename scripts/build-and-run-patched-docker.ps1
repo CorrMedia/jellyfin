@@ -4,7 +4,7 @@
     Builds patched Jellyfin from jellyfin-source, builds plugins, and runs the stack in Docker.
 .DESCRIPTION
     1. Builds the Docker image jellyfin-patched:local from jellyfin-source (patched server).
-    2. Builds CorrMedia (patched, net9.0) and copies it to docker/jellyfin/plugins (AudioControl not required).
+    2. Builds CorrMedia (patched, net9.0) and copies it to docker/jellyfin/plugins.
     2b. Copies test-movie.edl and test-movie.mkv from repo root to docker/jellyfin/media (if present) for EDL testing.
     3. Starts the container with docker-compose.patched.yml.
 .PARAMETER SkipImageBuild
@@ -50,7 +50,7 @@ if (-not $SkipImageBuild) {
     Write-Host 'Skipping image build (using existing jellyfin-patched:local).'
 }
 
-# 2. Build and stage CorrMedia (AudioControl deprecated for mute)
+# 2. Build and stage CorrMedia
 if (-not $SkipPlugins) {
     $skipProject = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
     $skipOutDir = if (Test-Path (Join-Path $repoRoot 'jellyfin-source\MediaBrowser.Controller')) { 'net9.0' } else { 'net8.0' }
@@ -68,7 +68,7 @@ if (-not $SkipPlugins) {
     $legacyAudio = Join-Path $pluginRoot 'Jellyfin.Plugin.AudioControl'
     if (Test-Path $legacyAudio) {
         Remove-Item -Recurse -Force $legacyAudio
-        Write-Host 'Removed legacy AudioControl plugin folder (mute is in CorrMedia).'
+        Write-Host 'Removed legacy AudioControl plugin folder.'
     }
 
     Write-Host 'CorrMedia staged to docker\jellyfin\plugins.'
