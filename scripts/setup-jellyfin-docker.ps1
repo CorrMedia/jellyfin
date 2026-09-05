@@ -31,12 +31,6 @@ New-Item -ItemType Directory -Force -Path $skipTargetDir | Out-Null
 Copy-Item -Force $skipDll (Join-Path $skipTargetDir 'Jellyfin.Plugin.CorrMedia.dll')
 Copy-Item -Force $skipManifest (Join-Path $skipTargetDir 'manifest.json')
 
-$legacyAudio = Join-Path $pluginRoot 'Jellyfin.Plugin.AudioControl'
-if (Test-Path $legacyAudio) {
-    Remove-Item -Recurse -Force $legacyAudio
-    Write-Host 'Removed legacy AudioControl plugin folder.'
-}
-
 Write-Host 'CorrMedia staged into docker/jellyfin/plugins.'
 
 if ($StartStack) {

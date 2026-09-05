@@ -1,0 +1,24 @@
+{
+    "schema_version": "1.0",
+    "media": {
+      "title": "Movie Title",
+      "year": 2025,
+      "edition": "theatrical",
+      "fps": 23.976,
+      "runtime": 7200.5
+    },
+    "edits": [
+      {
+        "id": "edit_001",
+        "start": 854.2,
+        "end": 861.7,
+        "action": "skip",
+        "categories": [
+          "nudity",
+          "sexual_content"
+        ],
+        "severity": 3,
+        "description": "Brief nudity"
+      }
+    ]
+  }

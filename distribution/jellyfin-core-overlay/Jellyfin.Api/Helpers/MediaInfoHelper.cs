@@ -110,7 +110,7 @@ public class MediaInfoHelper
             else
             {
                 mediaSources = mediaSourcesList
-                    .Where(i => string.Equals(i.Id, mediaSourceId, StringComparison.OrdinalIgnoreCase))
+                    .Where(i => MediaSourceIdsEqual(i.Id, mediaSourceId))
                     .ToArray();
             }
         }
@@ -208,14 +208,29 @@ public class MediaInfoHelper
             AlwaysBurnInSubtitleWhenTranscoding = alwaysBurnInSubtitleWhenTranscoding,
         };
 
-        if (string.Equals(mediaSourceId, mediaSource.Id, StringComparison.OrdinalIgnoreCase))
+        if (MediaSourceIdsEqual(mediaSourceId, mediaSource.Id))
         {
-            options.MediaSourceId = mediaSourceId;
+            options.MediaSourceId = mediaSource.Id;
             options.AudioStreamIndex = audioStreamIndex;
             options.SubtitleStreamIndex = subtitleStreamIndex;
         }
 
         var user = _userManager.GetUserById(userId) ?? throw new ResourceNotFoundException();
+
+        var itemIdN = item.Id.ToString("N", CultureInfo.InvariantCulture);
+        var isEdlSource = item is Video
+            && _edlDeliveryHints.Any(h => h.IsEdlAppliedMediaSource(mediaSource.Id, itemIdN));
+        if (isEdlSource)
+        {
+            // Edited sources must never DirectPlay/DirectStream (would bypass mute/cut).
+            mediaSource.SupportsDirectPlay = false;
+            mediaSource.SupportsDirectStream = false;
+            mediaSource.SupportsTranscoding = true;
+            enableDirectPlay = false;
+            enableDirectStream = false;
+            options.EnableDirectPlay = false;
+            options.EnableDirectStream = false;
+        }
 
         if (!enableDirectPlay)
         {
@@ -267,17 +282,6 @@ public class MediaInfoHelper
             streamInfo.PlaySessionId = playSessionId;
             streamInfo.StartPositionTicks = startTimeTicks;
 
-            var itemIdN = item.Id.ToString("N", CultureInfo.InvariantCulture);
-            var isEdlSource = item is Video
-                && _edlDeliveryHints.Any(h => h.IsEdlAppliedMediaSource(mediaSource.Id));
-            if (isEdlSource)
-            {
-                // Edited sources must never DirectPlay/DirectStream (would bypass mute/cut).
-                mediaSource.SupportsDirectPlay = false;
-                mediaSource.SupportsDirectStream = false;
-                mediaSource.SupportsTranscoding = true;
-            }
-
             var forceEdlHls = isEdlSource
                 && _edlDeliveryHints.Any(h => h.RequiresHls(itemIdN, mediaSource.Id));
             if (forceEdlHls)
@@ -304,7 +308,7 @@ public class MediaInfoHelper
                 || mediaSource.TranscodingContainer is not null
                 || profile.TranscodingProfiles.Any(i => i.Type == streamInfo.MediaType && i.Context == options.Context);
 
-            if (forceEdlHls)
+            if (isEdlSource)
             {
                 mediaSource.SupportsDirectPlay = false;
                 mediaSource.SupportsDirectStream = false;
@@ -371,17 +375,52 @@ public class MediaInfoHelper
             // The token must not be null
             SetDeviceSpecificSubtitleInfo(streamInfo, mediaSource, claimsPrincipal.GetToken()!);
             mediaSource.DefaultAudioStreamIndex = streamInfo.AudioStreamIndex;
+
+            _logger.LogInformation(
+                "Playback source {SourceName} Id={MediaSourceId} isEdl={IsEdl} forceHls={ForceHls} PlayMethod={PlayMethod} DirectPlay={DirectPlay} DirectStream={DirectStream} Transcode={Transcode} TranscodingUrl={TranscodingUrl}",
+                mediaSource.Name,
+                mediaSource.Id,
+                isEdlSource,
+                forceEdlHls,
+                streamInfo.PlayMethod,
+                mediaSource.SupportsDirectPlay,
+                mediaSource.SupportsDirectStream,
+                mediaSource.SupportsTranscoding,
+                mediaSource.TranscodingUrl);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "No stream info for source {SourceName} Id={MediaSourceId} isEdl={IsEdl}",
+                mediaSource.Name,
+                mediaSource.Id,
+                isEdlSource);
         }
 
-        foreach (var attachment in mediaSource.MediaAttachments)
+        if (mediaSource.MediaAttachments is not null)
         {
-            attachment.DeliveryUrl = string.Format(
-                CultureInfo.InvariantCulture,
-                "/Videos/{0}/{1}/Attachments/{2}",
-                item.Id,
-                mediaSource.Id,
-                attachment.Index);
+            foreach (var attachment in mediaSource.MediaAttachments)
+            {
+                attachment.DeliveryUrl = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "/Videos/{0}/{1}/Attachments/{2}",
+                    item.Id,
+                    mediaSource.Id,
+                    attachment.Index);
+            }
         }
+    }
+
+    private static bool MediaSourceIdsEqual(string? left, string? right)
+    {
+        if (string.Equals(left, right, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return Guid.TryParse(left, out var leftGuid)
+            && Guid.TryParse(right, out var rightGuid)
+            && leftGuid == rightGuid;
     }
 
     /// <summary>

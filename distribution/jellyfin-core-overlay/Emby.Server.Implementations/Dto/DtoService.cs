@@ -1198,6 +1198,12 @@ namespace Emby.Server.Implementations.Dto
                             mediaStreams = dto.MediaSources.Where(i => string.Equals(i.Id, id, StringComparison.OrdinalIgnoreCase))
                                 .SelectMany(i => i.MediaStreams)
                                 .ToArray();
+                            if (mediaStreams.Length == 0)
+                            {
+                                mediaStreams = dto.MediaSources
+                                    .SelectMany(i => i.MediaStreams ?? [])
+                                    .ToArray();
+                            }
                         }
                     }
                     else

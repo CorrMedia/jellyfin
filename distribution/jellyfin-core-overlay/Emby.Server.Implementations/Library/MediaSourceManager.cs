@@ -199,7 +199,8 @@ namespace Emby.Server.Implementations.Library
 
             foreach (var source in dynamicMediaSources)
             {
-                var isEdlApplied = _edlDeliveryHints.Any(h => h.IsEdlAppliedMediaSource(source.Id));
+                var isEdlApplied = _edlDeliveryHints.Any(h =>
+                    h.IsEdlAppliedMediaSource(source.Id, item.Id.ToString("N", CultureInfo.InvariantCulture)));
 
                 // Validate that this is actually possible
                 if (source.SupportsDirectStream && !isEdlApplied)

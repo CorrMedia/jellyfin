@@ -1,4 +1,3 @@
-using Jellyfin.Plugin.CorrMedia.Configuration;
 using Jellyfin.Plugin.CorrMedia.Services;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
@@ -14,7 +13,6 @@ namespace Jellyfin.Plugin.CorrMedia
         /// <inheritdoc />
         public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
         {
-            serviceCollection.AddSingleton<PluginConfiguration>();
             serviceCollection.AddSingleton<EdlEditStore>();
             serviceCollection.AddHostedService<SkipEdl>();
 
@@ -23,9 +21,6 @@ namespace Jellyfin.Plugin.CorrMedia
             serviceCollection.AddSingleton<MediaBrowser.Controller.MediaEncoding.ISessionMediaEditGraphProvider, SessionMediaEditGraphProvider>();
             serviceCollection.AddSingleton<MediaBrowser.Controller.MediaEncoding.ISessionMuteRangeLoader, SessionMuteRangeLoader>();
             serviceCollection.AddSingleton<MediaBrowser.Controller.MediaEncoding.ISessionEdlDeliveryHint, SessionEdlDeliveryHint>();
-#else
-            serviceCollection.AddSingleton<SessionAudioFilterProvider>();
-            serviceCollection.AddSingleton<SessionMediaEditGraphProvider>();
 #endif
         }
     }

@@ -1,3 +1,5 @@
+#if PATCHED_CORE
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -217,3 +219,5 @@ internal static class EdlFilterComplexBuilder
         return expr;
     }
 }
+
+#endif

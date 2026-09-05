@@ -5,7 +5,7 @@
     <title>CorrMedia</title>
 </head>
 <body>
-    <div id="TemplateConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div id="TemplateConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button,emby-checkbox">
         <div data-role="content">
             <div class="content-primary">
                 <form id="TemplateConfigForm">
@@ -16,12 +16,6 @@
                             <span>Prefer Edited when EDL exists</span>
                         </label>
                         <div class="fieldDescription">When a sidecar .edl is present, sort "{Title} (Edited)" ahead of Original so clients that take the first source play the EDL-applied version. Uncheck to prefer Original. Clients with an explicit source picker can still choose either.</div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="SessionCheckInterval">Session Check Interval (ms)</label>
-                        <input id="SessionCheckInterval" name="SessionCheckInterval" type="number" is="emby-input" min="10" />
-                        <div class="fieldDescription">Legacy setting retained for compatibility. EDL plans load on Edited stream requests only.</div>
                     </div>
 
                     <!-- Save Button -->
@@ -43,7 +37,6 @@
                 .addEventListener('pageshow', function () {
                     Dashboard.requestPluginConfiguration(TemplateConfig.pluginUniqueId)
                         .then(function (config) {
-                            document.querySelector('#SessionCheckInterval').value = config.SessionCheckInterval || 50;
                             document.querySelector('#PreferEdlApplied').checked = config.PreferEdlApplied !== false;
                         });
                 });
@@ -52,7 +45,6 @@
                 .addEventListener('submit', function (e) {
                     e.preventDefault();
                     Dashboard.savePluginConfiguration(TemplateConfig.pluginUniqueId, {
-                        SessionCheckInterval: parseInt(document.querySelector('#SessionCheckInterval').value) || 50,
                         PreferEdlApplied: document.querySelector('#PreferEdlApplied').checked
                     });
                 });

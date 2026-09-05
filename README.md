@@ -69,7 +69,6 @@ If the third column is omitted, the range is treated as **skip**.
 ## Configuration
 
 - **Prefer Edited when EDL exists** — Default **on**. Sorts `{Title} (Edited)` ahead of Original for naive clients; turn off to prefer Original. Explicit source pickers still work either way.
-- **Session Check Interval** — Legacy setting (plans load on Edited stream requests).
 
 ## Compatibility
 

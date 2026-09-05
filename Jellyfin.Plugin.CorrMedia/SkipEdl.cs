@@ -10,8 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia
 {
     /// <summary>
-    /// Clears EDL plans when sessions end. Plans are loaded only for Edited sources
-    /// via <see cref="SessionMuteRangeLoader"/> (dual delivery).
+    /// Clears EDL plans when sessions end. Plans are loaded only for Edited sources.
     /// </summary>
     public sealed class SkipEdl : IHostedService, IDisposable
     {

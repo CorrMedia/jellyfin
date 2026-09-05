@@ -83,14 +83,4 @@ internal static class EdlFile
 
         return (mutes, skips);
     }
-
-    /// <summary>
-    /// Parses mute ranges (EDL type 1) from an EDL file.
-    /// </summary>
-    /// <param name="edlPath">Path to the EDL file.</param>
-    /// <returns>Mute ranges in seconds.</returns>
-    public static List<MuteTimeRange> ParseMuteRanges(string edlPath)
-    {
-        return ParseMuteAndSkip(edlPath).Mutes;
-    }
 }

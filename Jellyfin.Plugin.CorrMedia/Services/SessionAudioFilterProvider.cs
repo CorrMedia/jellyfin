@@ -1,3 +1,5 @@
+#if PATCHED_CORE
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -11,11 +13,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services;
 /// Supplies session-scoped FFmpeg mute filters when there is no cut graph (mute-only EDL).
 /// When skips exist, mute is applied inside <see cref="SessionMediaEditGraphProvider"/> instead.
 /// </summary>
-#if PATCHED_CORE
 public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEncoding.ISessionAudioFilterProvider
-#else
-public sealed class SessionAudioFilterProvider
-#endif
 {
     private readonly EdlEditStore _edlEditStore;
     private readonly ILogger<SessionAudioFilterProvider> _logger;
@@ -128,3 +126,5 @@ public sealed class SessionAudioFilterProvider
         return expr;
     }
 }
+
+#endif

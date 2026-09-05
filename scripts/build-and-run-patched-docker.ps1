@@ -65,12 +65,6 @@ if (-not $SkipPlugins) {
     Copy-Item -Force $skipDll $skipTargetDir
     Copy-Item -Force (Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json') $skipTargetDir
 
-    $legacyAudio = Join-Path $pluginRoot 'Jellyfin.Plugin.AudioControl'
-    if (Test-Path $legacyAudio) {
-        Remove-Item -Recurse -Force $legacyAudio
-        Write-Host 'Removed legacy AudioControl plugin folder.'
-    }
-
     Write-Host 'CorrMedia staged to docker\jellyfin\plugins.'
 } else {
     Write-Host 'Skipping plugin build and stage.'

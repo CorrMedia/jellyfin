@@ -6,7 +6,7 @@ Adds:
 - ISessionMediaEditGraphProvider — mute-then-cut -filter_complex (NLE order)
 - ISessionMuteRangeLoader — pre-stream EDL load (Edited MediaSourceId only)
 - ISessionEdlDeliveryHint — Edited detection, PreferEdl sort, force HLS when cuts exist
-- EncodingHelper / VideosController / DynamicHlsController / MediaInfoHelper wiring
+- EncodingHelper / VideosController / DynamicHlsController / DynamicHlsHelper / StreamingHelpers / MediaInfoHelper / UserLibraryController wiring
 
 Dual delivery: CorrMedia EdlMediaSourceProvider adds "{Title} (Edited)" (*_edl).
 Mute/cut/HLS apply only when that MediaSourceId is selected.

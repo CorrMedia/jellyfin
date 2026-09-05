@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.CorrMedia.Models;
@@ -55,12 +56,12 @@ public sealed class EdlMediaSourceProvider : IMediaSourceProvider
         }
 
         var source = BuildEditedSource(item, skips);
-        _logger.LogDebug(
-            "EDL media source for {ItemName}: mutes={Mutes} skips={Skips} runTimeTicks={Ticks}",
+        _logger.LogInformation(
+            "Added Edited media source {MediaSourceId} for {ItemName} (mutes={Mutes} skips={Skips})",
+            source.Id,
             source.Name,
             mutes.Count,
-            skips.Count,
-            source.RunTimeTicks);
+            skips.Count);
 
         return Task.FromResult<IEnumerable<MediaSourceInfo>>([source]);
     }
@@ -71,25 +72,45 @@ public sealed class EdlMediaSourceProvider : IMediaSourceProvider
 
     private static MediaSourceInfo BuildEditedSource(BaseItem item, IReadOnlyList<MuteTimeRange> skips)
     {
-        // Match Jellyfin's static MediaSource name (filename stem), then append (Edited).
-        // MediaSourceManager may refine this from the primary static source Name.
-        var baseName = GetJellyfinStyleSourceName(item);
         var editedTicks = ComputeEditedRunTimeTicks(item.RunTimeTicks, skips);
+        var info = ClonePrimarySource(item) ?? CreateFallbackSource(item);
 
+        var baseName = string.IsNullOrWhiteSpace(info.Name)
+            ? GetJellyfinStyleSourceName(item)
+            : info.Name;
+
+        info.Id = EdlMediaSourceIds.ForItem(item.Id);
+        info.Name = baseName + " (Edited)";
+        info.RunTimeTicks = editedTicks;
+        info.Type = MediaSourceType.Default;
+        info.SupportsDirectPlay = false;
+        info.SupportsDirectStream = false;
+        info.SupportsTranscoding = true;
+        info.RequiresOpening = false;
+        info.MediaStreams ??= [];
+        info.MediaAttachments ??= [];
+        return info;
+    }
+
+    private static MediaSourceInfo? ClonePrimarySource(BaseItem item)
+    {
+        var sources = item.GetMediaSources(false);
+        if (sources.Count == 0)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<MediaSourceInfo>(JsonSerializer.SerializeToUtf8Bytes(sources[0]));
+    }
+
+    private static MediaSourceInfo CreateFallbackSource(BaseItem item)
+    {
         var info = new MediaSourceInfo
         {
-            Id = EdlMediaSourceIds.ForItem(item.Id),
-            Name = baseName + " (Edited)",
             Path = item.Path,
             Protocol = item.PathProtocol ?? MediaProtocol.File,
             Container = item.Container,
             Size = item.Size,
-            RunTimeTicks = editedTicks,
-            Type = MediaSourceType.Default,
-            SupportsDirectPlay = false,
-            SupportsDirectStream = false,
-            SupportsTranscoding = true,
-            RequiresOpening = false,
             MediaStreams = item.GetMediaStreams().ToList(),
         };
 

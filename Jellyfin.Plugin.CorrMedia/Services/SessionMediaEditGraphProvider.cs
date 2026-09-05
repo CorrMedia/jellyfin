@@ -1,5 +1,6 @@
+#if PATCHED_CORE
+
 using System;
-using Jellyfin.Plugin.CorrMedia.Models;
 using MediaBrowser.Controller.MediaEncoding;
 using Microsoft.Extensions.Logging;
 
@@ -8,11 +9,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services;
 /// <summary>
 /// Supplies mute-then-cut FFmpeg graphs for patched Jellyfin.
 /// </summary>
-#if PATCHED_CORE
 public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvider
-#else
-public sealed class SessionMediaEditGraphProvider
-#endif
 {
     private readonly EdlEditStore _edlEditStore;
     private readonly ILogger<SessionMediaEditGraphProvider> _logger;
@@ -59,3 +56,5 @@ public sealed class SessionMediaEditGraphProvider
         return graph;
     }
 }
+
+#endif

@@ -1,5 +1,7 @@
 #nullable enable
 
+using System;
+
 namespace MediaBrowser.Controller.MediaEncoding;
 
 /// <summary>
@@ -8,7 +10,14 @@ namespace MediaBrowser.Controller.MediaEncoding;
 public sealed class NoOpSessionEdlDeliveryHint : ISessionEdlDeliveryHint
 {
     /// <inheritdoc />
-    public bool IsEdlAppliedMediaSource(string? mediaSourceId) => false;
+    public bool IsEdlAppliedMediaSource(string? mediaSourceId, string? itemId = null) => false;
+
+    /// <inheritdoc />
+    public bool TryGetLibraryItemId(string? mediaSourceId, out Guid itemId)
+    {
+        itemId = default;
+        return false;
+    }
 
     /// <inheritdoc />
     public bool RequiresHls(string? itemId, string? mediaSourceId) => false;

@@ -18,7 +18,7 @@ From this repo root:
 .\scripts\apply-core-overlay.ps1 -JellyfinSourcePath C:\path\to\jellyfin
 ```
 
-You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionEdlDeliveryHint`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `MediaInfoHelper`, `DtoService`, `MediaSourceManager`, and `ApplicationHost`.
+You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionEdlDeliveryHint`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `MediaInfoHelper`, `DtoService`, `MediaSourceManager`, `UserLibraryController`, and `ApplicationHost`.
 
 ### 2. Build Jellyfin
 

@@ -29,8 +29,12 @@ public sealed class SessionEdlDeliveryHint : ISessionEdlDeliveryHint
     }
 
     /// <inheritdoc />
-    public bool IsEdlAppliedMediaSource(string? mediaSourceId)
-        => EdlMediaSourceIds.IsEdited(mediaSourceId);
+    public bool IsEdlAppliedMediaSource(string? mediaSourceId, string? itemId = null)
+        => EdlMediaSourceIds.IsEdited(mediaSourceId, itemId);
+
+    /// <inheritdoc />
+    public bool TryGetLibraryItemId(string? mediaSourceId, out Guid itemId)
+        => EdlMediaSourceIds.TryGetItemId(mediaSourceId, out itemId);
 
     /// <inheritdoc />
     public bool PreferEdlAppliedMediaSources()
@@ -39,7 +43,7 @@ public sealed class SessionEdlDeliveryHint : ISessionEdlDeliveryHint
     /// <inheritdoc />
     public bool RequiresHls(string? itemId, string? mediaSourceId)
     {
-        if (!EdlMediaSourceIds.IsEdited(mediaSourceId))
+        if (!EdlMediaSourceIds.IsEdited(mediaSourceId, itemId))
         {
             return false;
         }
