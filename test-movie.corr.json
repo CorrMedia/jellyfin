@@ -6,7 +6,8 @@
     "year": 2025,
     "edition": "test",
     "fps": 24,
-    "runtime": 90
+    "runtime": 90,
+    "notes": "5.1 tones: FL220 FR330 FC880 LFE60 BL440 BR550"
   },
   "edits": [
     {
@@ -16,7 +17,17 @@
       "action": "mute",
       "categories": ["test"],
       "severity": 1,
-      "description": "Mute 0–10s; ORIG counter still advances"
+      "description": "Mute all channels 0–10s; full silence while ORIG counter advances"
+    },
+    {
+      "id": "edit_007",
+      "start": 10.0,
+      "end": 14.0,
+      "action": "volume",
+      "gain": 0.2,
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Duck all channels 10–14s (gain 0.2); tones still audible but quiet"
     },
     {
       "id": "edit_002",
@@ -28,13 +39,45 @@
       "description": "Cut 15–20s; after ORIG 14s the next frame is ORIG 20s"
     },
     {
+      "id": "edit_008",
+      "start": 21.0,
+      "end": 27.0,
+      "action": "cover",
+      "box": {
+        "x": 0.05,
+        "y": 0.25,
+        "width": 0.3,
+        "height": 0.45
+      },
+      "box_end": {
+        "x": 0.65,
+        "y": 0.25
+      },
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Black cover box 21–27s, panning left→right (edited playhead ~16–22s after the cut)"
+    },
+    {
       "id": "edit_003",
       "start": 30.0,
       "end": 35.0,
       "action": "mute",
+      "channels": ["FC"],
       "categories": ["test"],
       "severity": 1,
-      "description": "Mute 30–35s; ORIG counter still advances"
+      "description": "Mute center only 30–35s; 880 Hz drops, fronts/surrounds remain (before stereo downmix)"
+    },
+    {
+      "id": "edit_009",
+      "start": 36.0,
+      "end": 39.0,
+      "action": "crop",
+      "scale": 2.0,
+      "x": 0.5,
+      "y": 0.45,
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Crop-and-pad 36–39s around the ORIG counter; black bars, original frame size"
     },
     {
       "id": "edit_004",
@@ -50,13 +93,39 @@
       "description": "Punch in 40–50s and pan left→right across the ORIG counter (edited playhead ~35–45s after the cut)"
     },
     {
+      "id": "edit_010",
+      "start": 51.0,
+      "end": 56.0,
+      "action": "pixelate",
+      "size": 24,
+      "box": {
+        "x": 0.35,
+        "y": 0.3,
+        "width": 0.3,
+        "height": 0.4
+      },
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Pixelate a box over the ORIG counter 51–56s (edited playhead ~46–51s after the cut)"
+    },
+    {
+      "id": "edit_011",
+      "start": 57.0,
+      "end": 59.0,
+      "action": "blank",
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Full-frame black 57–59s; audio continues (edited playhead ~52–54s after the cut)"
+    },
+    {
       "id": "edit_005",
       "start": 60.0,
       "end": 65.0,
       "action": "mute",
+      "channels": ["FL", "FR"],
       "categories": ["test"],
       "severity": 1,
-      "description": "Mute 60–65s; ORIG counter still advances"
+      "description": "Mute fronts 60–65s; 220/330 Hz drop, FC/surrounds remain (before stereo downmix)"
     },
     {
       "id": "edit_006",
@@ -75,8 +144,19 @@
         "y": 0.3
       },
       "categories": ["test"],
-      "severity": 1,
+      "priority": 1,
       "description": "Blur a box 70–80s, panning left→right (edited playhead ~65–75s after the cut)"
+    },
+    {
+      "id": "edit_012",
+      "start": 81.0,
+      "end": 82.0,
+      "action": "beep",
+      "frequency": 1000,
+      "gain": 0.3,
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Replace audio with 1 kHz beep 81–88s; video continues (edited playhead ~76–83s after the cut)"
     }
   ]
 }

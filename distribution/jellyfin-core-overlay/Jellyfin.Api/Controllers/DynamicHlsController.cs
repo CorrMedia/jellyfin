@@ -1703,16 +1703,19 @@ public class DynamicHlsController : BaseJellyfinApiController
 
         var videoArgs = GetVideoArguments(state, startNumber, isEventPlaylist, segmentContainer);
         var audioArgs = GetAudioArguments(state);
+        var timestampArgs = "-copyts -avoid_negative_ts disabled";
         if (!string.IsNullOrEmpty(editGraphPrefix))
         {
             // Graph already owns A/V filters; force encode codecs without stock -vf/-af mute.
-            videoArgs = GetVideoArgumentsForEditGraph(state);
+            // Concat output is 0-based — copyts would keep original-timeline stamps and break the last HLS segments.
+            videoArgs = GetVideoArgumentsForEditGraph(state, startNumber, isEventPlaylist);
             audioArgs = GetAudioArgumentsForEditGraph(state);
+            timestampArgs = "-avoid_negative_ts make_zero";
         }
 
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0} {1} {2}-map_metadata -1 -map_chapters -1 -threads {3} {4} {5} {6} -copyts -avoid_negative_ts disabled -max_muxing_queue_size {7} -f hls -max_delay 5000000 -hls_time {8} -hls_segment_type {9} -start_number {10}{11} -hls_segment_filename \"{12}\" {13} -y \"{14}\"",
+            "{0} {1} {2}-map_metadata -1 -map_chapters -1 -threads {3} {4} {5} {6} {7} -max_muxing_queue_size {8} -f hls -max_delay 5000000 -hls_time {9} -hls_segment_type {10} -start_number {11}{12} -hls_segment_filename \"{13}\" {14} -y \"{15}\"",
             inputModifier,
             _encodingHelper.GetInputArgument(state, _encodingOptions, segmentContainer),
             editGraphPrefix,
@@ -1720,6 +1723,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             mapArgs,
             videoArgs,
             audioArgs,
+            timestampArgs,
             maxMuxingQueueSize,
             state.SegmentLength.ToString(CultureInfo.InvariantCulture),
             segmentFormat,
@@ -1730,7 +1734,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             EncodingUtils.NormalizePath(outputPath)).Trim();
     }
 
-    private string GetVideoArgumentsForEditGraph(StreamState state)
+    private string GetVideoArgumentsForEditGraph(StreamState state, int startNumber, bool isEventPlaylist)
     {
         var videoCodec = _encodingHelper.GetVideoEncoder(state, _encodingOptions);
         if (EncodingHelper.IsCopyCodec(videoCodec))
@@ -1738,7 +1742,8 @@ public class DynamicHlsController : BaseJellyfinApiController
             videoCodec = "libx264";
         }
 
-        return "-codec:v:0 " + videoCodec + " -force_key_frames \"expr:gte(t,n_forced*5)\"";
+        return "-codec:v:0 " + videoCodec
+            + _encodingHelper.GetHlsVideoKeyFrameArguments(state, videoCodec, state.SegmentLength, isEventPlaylist, startNumber);
     }
 
     private string GetAudioArgumentsForEditGraph(StreamState state)

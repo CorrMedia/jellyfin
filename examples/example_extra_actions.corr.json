@@ -1,0 +1,60 @@
+{
+  "$schema": "../schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Example cover, crop, pixelate, blank, volume, beep",
+    "runtime": 120
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 8.0,
+      "end": 16.0,
+      "action": "cover",
+      "box": { "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4 },
+      "description": "Black rectangle over a region"
+    },
+    {
+      "id": "edit_002",
+      "start": 20.0,
+      "end": 28.0,
+      "action": "crop",
+      "scale": 2.0,
+      "x": 0.5,
+      "y": 0.45,
+      "description": "Keep the center and pad with black; output size unchanged"
+    },
+    {
+      "id": "edit_003",
+      "start": 32.0,
+      "end": 40.0,
+      "action": "pixelate",
+      "size": 24,
+      "box": { "x": 0.6, "y": 0.3, "width": 0.25, "height": 0.3 },
+      "description": "Pixelate a region"
+    },
+    {
+      "id": "edit_004",
+      "start": 44.0,
+      "end": 48.0,
+      "action": "blank",
+      "description": "Full-frame black; audio continues"
+    },
+    {
+      "id": "edit_005",
+      "start": 52.0,
+      "end": 60.0,
+      "action": "volume",
+      "gain": 0.2,
+      "description": "Duck all channels"
+    },
+    {
+      "id": "edit_006",
+      "start": 64.0,
+      "end": 68.0,
+      "action": "beep",
+      "frequency": 1000,
+      "description": "Replace audio with a 1 kHz tone"
+    }
+  ]
+}

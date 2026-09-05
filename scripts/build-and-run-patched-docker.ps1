@@ -3,6 +3,7 @@
 .SYNOPSIS
     Builds patched Jellyfin from jellyfin-source, builds plugins, and runs the stack in Docker.
 .DESCRIPTION
+    0. Copies distribution/jellyfin-core-overlay into jellyfin-source (overlay is the source of truth).
     1. Builds the Docker image jellyfin-patched:local from jellyfin-source (patched server).
     2. Builds CorrMedia (patched, net9.0) and copies it to docker/jellyfin/plugins.
     2b. Bind-mounts repo-root test-movie.corr.json and test-movie.mkv over /media (see docker-compose.patched.yml).
@@ -36,6 +37,14 @@ if (-not (Test-Path $jellyfinSource)) {
 }
 if (-not (Test-Path $dockerfile)) {
     Write-Error "Dockerfile not found at $dockerfile"
+}
+
+# 0. Overlay is the committed patch set; apply it before any image build so
+#    jellyfin-source cannot drift from distribution/jellyfin-core-overlay.
+Write-Host 'Applying core overlay to jellyfin-source...'
+& (Join-Path $PSScriptRoot 'apply-core-overlay.ps1') -JellyfinSourcePath $jellyfinSource
+if (-not $?) {
+    throw 'Failed to apply core overlay.'
 }
 
 # 1. Build Docker image (patched Jellyfin)

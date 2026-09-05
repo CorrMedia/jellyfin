@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using Jellyfin.Plugin.CorrMedia.Models;
 using Microsoft.Extensions.Logging;
@@ -10,8 +9,9 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services;
 
 /// <summary>
-/// Supplies session-scoped FFmpeg mute filters when there is no cut graph (mute-only EDL).
-/// When skips or video effects exist, mute is applied inside <see cref="SessionMediaEditGraphProvider"/> instead.
+/// Supplies session-scoped FFmpeg mute/volume/beep filters when there is no cut graph.
+/// When skips, video effects, or selective channel edits exist, audio is applied inside
+/// <see cref="SessionMediaEditGraphProvider"/> instead.
 /// </summary>
 public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEncoding.ISessionAudioFilterProvider
 {
@@ -29,11 +29,11 @@ public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEn
     {
         _edlEditStore = edlEditStore ?? throw new ArgumentNullException(nameof(edlEditStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _logger.LogInformation("SessionAudioFilterProvider registered (mute-only path)");
+        _logger.LogInformation("SessionAudioFilterProvider registered (audio-only path)");
     }
 
     /// <summary>
-    /// Returns an FFmpeg volume filter for mute-only EDLs.
+    /// Returns an FFmpeg audio filter for mute/volume/beep-only EDLs.
     /// </summary>
     /// <param name="playSessionId">Play session ID.</param>
     /// <param name="deviceId">Device ID.</param>
@@ -47,7 +47,7 @@ public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEn
             return null;
         }
 
-        // Cuts and video effects own mute inside filter_complex.
+        // Cuts, video effects, and selective channel edits own audio inside filter_complex.
         if (plan.NeedsEditGraph)
         {
             return null;
@@ -59,15 +59,9 @@ public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEn
             return null;
         }
 
-        var expr = BuildVolumeExpression(shifted);
-        if (string.IsNullOrEmpty(expr))
-        {
-            return null;
-        }
-
-        var filter = "volume='" + expr + "':eval=frame";
+        var filter = AudioEditExpressions.BuildFilter(shifted);
         _logger.LogInformation(
-            "SessionAudioFilterProvider mute-only filter startSeconds={Start}: {Filter}",
+            "SessionAudioFilterProvider audio-only filter startSeconds={Start}: {Filter}",
             startTimeSeconds,
             filter);
         return filter;
@@ -99,31 +93,11 @@ public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEn
 
             if (relativeEnd > relativeStart)
             {
-                result.Add(new MuteTimeRange(relativeStart, relativeEnd));
+                result.Add(new MuteTimeRange(relativeStart, relativeEnd, r.Channels, r.Kind, r.Gain, r.Frequency));
             }
         }
 
         return result;
-    }
-
-    private static string? BuildVolumeExpression(List<MuteTimeRange> ranges)
-    {
-        if (ranges.Count == 0)
-        {
-            return null;
-        }
-
-        var sorted = ranges.OrderBy(r => r.StartTime).ToList();
-        var expr = "1";
-        for (var i = sorted.Count - 1; i >= 0; i--)
-        {
-            var r = sorted[i];
-            var s = r.StartTime.ToString(CultureInfo.InvariantCulture);
-            var e = r.EndTime.ToString(CultureInfo.InvariantCulture);
-            expr = "if(between(t," + s + "," + e + "),0," + expr + ")";
-        }
-
-        return expr;
     }
 }
 

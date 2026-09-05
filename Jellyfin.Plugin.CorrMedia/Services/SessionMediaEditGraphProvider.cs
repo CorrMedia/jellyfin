@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services;
 
 /// <summary>
-/// Supplies FFmpeg graphs (zoom/blur/mute, then cut) for patched Jellyfin.
+/// Supplies FFmpeg graphs (video/audio effects, then cut) for patched Jellyfin.
 /// </summary>
 public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvider
 {
@@ -42,14 +42,44 @@ public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvid
             return null;
         }
 
-        var graph = EdlFilterComplexBuilder.Build(plan, context.DurationSeconds, context.StartTimeSeconds);
+        // Prefer ffprobe'd layout from plan load — library AudioStream can stay stale after remux.
+        var inputLayout = !string.IsNullOrWhiteSpace(plan.SourceChannelLayout)
+            ? plan.SourceChannelLayout
+            : context.InputChannelLayout;
+        var inputChannels = plan.SourceChannelCount > 0
+            ? plan.SourceChannelCount
+            : context.InputChannelCount;
+        // Downmix only when the real source is multi-channel and the client asked for stereo.
+        var outputChannels = context.OutputAudioChannels;
+        var stereoDownmix = inputChannels > 2 && outputChannels == 2
+            ? context.StereoDownmixFilter
+            : null;
+        if (stereoDownmix is null && inputChannels > 2 && outputChannels == 2)
+        {
+            stereoDownmix = "aformat=channel_layouts=stereo";
+        }
+
+        var originalDuration = EdlFilterComplexBuilder.ResolveOriginalDuration(plan, context.DurationSeconds);
+        var graph = EdlFilterComplexBuilder.Build(
+            plan,
+            originalDuration,
+            context.StartTimeSeconds,
+            inputLayout,
+            inputChannels,
+            outputChannels,
+            stereoDownmix);
         if (graph is not null)
         {
             _logger.LogInformation(
-                "EDL edit graph PlaySessionId={PlaySessionId} duration={Duration} editedStart={Start} complexLength={Len}",
+                "EDL edit graph PlaySessionId={PlaySessionId} originalDuration={Duration} mediaSourceDuration={SourceDuration} editedStart={Start} layout={Layout} channels={Channels}->{OutChannels} selectiveMute={Selective} complexLength={Len}",
                 playSessionId ?? "(null)",
+                originalDuration,
                 context.DurationSeconds,
                 context.StartTimeSeconds,
+                inputLayout ?? "(null)",
+                inputChannels,
+                outputChannels,
+                plan.HasSelectiveMute,
                 graph.FilterComplex.Length);
         }
 

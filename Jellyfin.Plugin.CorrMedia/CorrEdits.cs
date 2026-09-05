@@ -8,7 +8,7 @@ namespace Jellyfin.Plugin.CorrMedia;
 /// </summary>
 /// <param name="Mutes">Mute ranges.</param>
 /// <param name="Skips">Skip/cut ranges.</param>
-/// <param name="VideoEffects">Duration-preserving video effects (zoom, blur).</param>
+/// <param name="VideoEffects">Duration-preserving video effects (zoom, crop, blur, cover, pixelate, blank).</param>
 internal sealed record CorrEdits(
     IReadOnlyList<MuteTimeRange> Mutes,
     IReadOnlyList<MuteTimeRange> Skips,

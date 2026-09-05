@@ -2,8 +2,10 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Session;
@@ -61,10 +63,16 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 return Task.CompletedTask;
             }
 
-            var path = session?.NowPlayingItem?.Path;
-            if (string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(itemId) && Guid.TryParse(itemId, out var guid))
+            BaseItem? item = null;
+            if (!string.IsNullOrEmpty(itemId) && Guid.TryParse(itemId, out var guid))
             {
-                path = _libraryManager.GetItemById(guid)?.Path;
+                item = _libraryManager.GetItemById(guid);
+            }
+
+            var path = session?.NowPlayingItem?.Path;
+            if (string.IsNullOrEmpty(path))
+            {
+                path = item?.Path;
             }
 
             if (string.IsNullOrEmpty(path))
@@ -84,8 +92,37 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 return Task.CompletedTask;
             }
 
+            var originalDuration = item?.RunTimeTicks is long ticks && ticks > 0
+                ? TimeSpan.FromTicks(ticks).TotalSeconds
+                : 0;
+
+            string? layout = null;
+            var channelCount = 0;
+            if (edits.Mutes.Any(m => m.IsSelectiveMute))
+            {
+                (layout, channelCount) = AudioLayoutProbe.TryProbe(path);
+                if (channelCount > 0)
+                {
+                    _logger.LogInformation(
+                        "SessionMuteRangeLoader: probed audio layout={Layout} channels={Channels} for selective mute Path={Path}",
+                        layout ?? "(null)",
+                        channelCount,
+                        path);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "SessionMuteRangeLoader: could not probe audio layout for selective mute Path={Path}; library metadata may be stale",
+                        path);
+                }
+            }
+
             _edlEditStore.SetPlan(
-                new EdlEditPlan(edits.Mutes, edits.Skips, edits.VideoEffects),
+                new EdlEditPlan(edits.Mutes, edits.Skips, edits.VideoEffects, originalDuration)
+                {
+                    SourceChannelLayout = layout,
+                    SourceChannelCount = channelCount,
+                },
                 playSessionId,
                 deviceId,
                 session?.Id,

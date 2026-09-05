@@ -7827,13 +7827,52 @@ namespace MediaBrowser.Controller.MediaEncoding
                 : 0;
             // Client seek is on the delivered (edited) timeline; graph trims keep-ranges accordingly.
             // Input -ss must stay 0 — trim timestamps are on the original timeline.
+            // DurationSeconds is the media-source runtime (already shortened when cuts exist).
+            // The graph provider restores original duration before computing keep ranges.
             var startSeconds = state.BaseRequest?.StartTimeTicks is long ticks && ticks > 0
                 ? TimeSpan.FromTicks(ticks).TotalSeconds
                 : 0;
+
+            var inputLayout = string.Empty;
+            var inputChannels = 0;
+            string stereoDownmix = null;
+            if (state.AudioStream is not null)
+            {
+                inputLayout = DownMixAlgorithmsHelper.InferChannelLayout(state.AudioStream) ?? string.Empty;
+                inputChannels = state.AudioStream.Channels ?? 0;
+                if (state.OutputAudioChannels == 2 && inputChannels > 2)
+                {
+                    // Prefer curated pan strings; EncodingOptions may not be in scope here.
+                    foreach (var algo in new[]
+                             {
+                                 DownMixStereoAlgorithms.Rfc7845,
+                                 DownMixStereoAlgorithms.Ac4,
+                                 DownMixStereoAlgorithms.Dave750,
+                                 DownMixStereoAlgorithms.NightmodeDialogue
+                             })
+                    {
+                        if (DownMixAlgorithmsHelper.AlgorithmFilterStrings.TryGetValue((algo, inputLayout), out stereoDownmix)
+                            && !string.IsNullOrWhiteSpace(stereoDownmix))
+                        {
+                            break;
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(stereoDownmix))
+                    {
+                        stereoDownmix = "aformat=channel_layouts=stereo";
+                    }
+                }
+            }
+
             var context = new SessionMediaEditGraphContext
             {
                 DurationSeconds = duration,
-                StartTimeSeconds = startSeconds
+                StartTimeSeconds = startSeconds,
+                InputChannelLayout = inputLayout,
+                InputChannelCount = inputChannels,
+                OutputAudioChannels = state.OutputAudioChannels ?? 0,
+                StereoDownmixFilter = stereoDownmix
             };
 
             foreach (var provider in _sessionMediaEditGraphProviders)

@@ -11,8 +11,8 @@ using MediaBrowser.Controller.MediaEncoding;
 namespace Jellyfin.Plugin.CorrMedia.Services;
 
 /// <summary>
-/// Builds FFmpeg graphs: duration-preserving effects (mute / zoom / blur) on the original
-/// timeline, then length-altering cuts.
+/// Builds FFmpeg graphs: duration-preserving effects (audio + video) on the original
+/// timeline, then length-altering cuts. Output frame size never changes.
 /// </summary>
 internal static class EdlFilterComplexBuilder
 {
@@ -20,10 +20,21 @@ internal static class EdlFilterComplexBuilder
     /// Builds a session edit graph, or null if neither cuts nor video effects are present.
     /// </summary>
     /// <param name="plan">EDL plan.</param>
-    /// <param name="durationSeconds">Media duration.</param>
+    /// <param name="durationSeconds">Uncut source duration in seconds.</param>
     /// <param name="editedStartSeconds">Start offset on the edited (post-cut) timeline, e.g. client seek.</param>
+    /// <param name="inputChannelLayout">Source audio layout (e.g. 5.1).</param>
+    /// <param name="inputChannelCount">Source audio channel count.</param>
+    /// <param name="outputAudioChannels">Requested output channel count.</param>
+    /// <param name="stereoDownmixFilter">Optional pan/aformat filter when downmixing to stereo after mute.</param>
     /// <returns>Graph or null.</returns>
-    public static SessionMediaEditGraph? Build(EdlEditPlan plan, double durationSeconds, double editedStartSeconds = 0)
+    public static SessionMediaEditGraph? Build(
+        EdlEditPlan plan,
+        double durationSeconds,
+        double editedStartSeconds = 0,
+        string? inputChannelLayout = null,
+        int inputChannelCount = 0,
+        int outputAudioChannels = 0,
+        string? stereoDownmixFilter = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         if (!plan.NeedsEditGraph)
@@ -40,10 +51,16 @@ internal static class EdlFilterComplexBuilder
         IReadOnlyList<(double Start, double End)> keep;
         if (plan.HasCuts)
         {
-            keep = BuildKeepRanges(plan.SkipRanges, durationSeconds);
-            if (editedStartSeconds > 0.001)
+            var fullKeep = BuildKeepRanges(plan.SkipRanges, durationSeconds);
+            keep = editedStartSeconds > 0.001
+                ? TruncateKeepRangesForEditedStart(fullKeep, editedStartSeconds)
+                : fullKeep;
+
+            if (keep.Count == 0)
             {
-                keep = TruncateKeepRangesForEditedStart(keep, editedStartSeconds);
+                // Seek at/past the edited duration — keep a tiny tail so HLS does not
+                // fall back to the uncut source (which breaks the last playlist segments).
+                keep = TailKeepRange(fullKeep);
             }
         }
         else if (editedStartSeconds > 0.001 && durationSeconds > 0)
@@ -64,15 +81,13 @@ internal static class EdlFilterComplexBuilder
 
         // 1) Duration-preserving effects on the original timeline (before cuts).
         var videoPad = AppendVideoEffects(sb, plan.VideoEffects);
-        if (plan.MuteRanges.Count > 0)
-        {
-            var expr = BuildVolumeExpression(plan.MuteRanges);
-            sb.Append("[0:a]volume='").Append(expr).Append("':eval=frame[amuted];");
-        }
-        else
-        {
-            sb.Append("[0:a]anull[amuted];");
-        }
+        var audioPad = AppendAudioEdits(
+            sb,
+            plan.MuteRanges,
+            inputChannelLayout,
+            inputChannelCount,
+            outputAudioChannels,
+            stereoDownmixFilter);
 
         if (keep.Count == 0)
         {
@@ -80,12 +95,12 @@ internal static class EdlFilterComplexBuilder
             {
                 FilterComplex = sb.ToString().TrimEnd(';'),
                 VideoMapLabel = videoPad,
-                AudioMapLabel = "amuted"
+                AudioMapLabel = audioPad
             };
         }
 
         // FFmpeg labeled pads are single-use — asplit/split before per-segment trim.
-        sb.Append(CultureInfo.InvariantCulture, $"[amuted]asplit={keep.Count}");
+        sb.Append(CultureInfo.InvariantCulture, $"[{audioPad}]asplit={keep.Count}");
         for (var i = 0; i < keep.Count; i++)
         {
             sb.Append(CultureInfo.InvariantCulture, $"[am{i}]");
@@ -105,9 +120,19 @@ internal static class EdlFilterComplexBuilder
         {
             var (start, end) = keep[i];
             var s = start.ToString(CultureInfo.InvariantCulture);
-            var e = end.ToString(CultureInfo.InvariantCulture);
-            sb.Append(CultureInfo.InvariantCulture, $"[vs{i}]trim=start={s}:end={e},setpts=PTS-STARTPTS[v{i}];");
-            sb.Append(CultureInfo.InvariantCulture, $"[am{i}]atrim=start={s}:end={e},asetpts=PTS-STARTPTS[a{i}];");
+            // Last keep that runs to original EOF: omit end so A/V both drain the file.
+            var isTail = i == keep.Count - 1 && end >= durationSeconds - 0.001;
+            if (isTail)
+            {
+                sb.Append(CultureInfo.InvariantCulture, $"[vs{i}]trim=start={s},setpts=PTS-STARTPTS[v{i}];");
+                sb.Append(CultureInfo.InvariantCulture, $"[am{i}]atrim=start={s},asetpts=PTS-STARTPTS[a{i}];");
+            }
+            else
+            {
+                var e = end.ToString(CultureInfo.InvariantCulture);
+                sb.Append(CultureInfo.InvariantCulture, $"[vs{i}]trim=start={s}:end={e},setpts=PTS-STARTPTS[v{i}];");
+                sb.Append(CultureInfo.InvariantCulture, $"[am{i}]atrim=start={s}:end={e},asetpts=PTS-STARTPTS[a{i}];");
+            }
         }
 
         for (var i = 0; i < keep.Count; i++)
@@ -126,7 +151,131 @@ internal static class EdlFilterComplexBuilder
     }
 
     /// <summary>
-    /// Appends zoom/blur overlays in sidecar order. Each effect is a timed overlay so output size never changes.
+    /// Appends mute / volume / beep (all-channel or selective channelsplit) then optional stereo downmix.
+    /// </summary>
+    /// <param name="sb">Filter graph being built.</param>
+    /// <param name="mutes">Audio edit ranges on the original timeline.</param>
+    /// <param name="inputChannelLayout">Source audio layout (e.g. 5.1).</param>
+    /// <param name="inputChannelCount">Source audio channel count.</param>
+    /// <param name="outputAudioChannels">Requested output channel count.</param>
+    /// <param name="stereoDownmixFilter">Optional pan/aformat filter when downmixing to stereo after edits.</param>
+    /// <returns>Output audio pad name without brackets.</returns>
+    internal static string AppendAudioEdits(
+        StringBuilder sb,
+        IReadOnlyList<MuteTimeRange> mutes,
+        string? inputChannelLayout,
+        int inputChannelCount,
+        int outputAudioChannels,
+        string? stereoDownmixFilter)
+    {
+        string mutedPad;
+        if (mutes.Count == 0)
+        {
+            sb.Append("[0:a]anull[amuted];");
+            mutedPad = "amuted";
+        }
+        else if (!mutes.Any(m => m.IsSelectiveMute)
+                 || !TryAppendSelectiveMute(sb, mutes, inputChannelLayout, inputChannelCount, out mutedPad))
+        {
+            sb.Append("[0:a]").Append(AudioEditExpressions.BuildFilter(mutes)).Append("[amuted];");
+            mutedPad = "amuted";
+        }
+
+        // Mute on the source layout, then downmix if the client asked for stereo.
+        if (outputAudioChannels == 2
+            && inputChannelCount > 2
+            && !string.IsNullOrWhiteSpace(stereoDownmixFilter))
+        {
+            sb.Append(CultureInfo.InvariantCulture, $"[{mutedPad}]{stereoDownmixFilter}[adown];");
+            return "adown";
+        }
+
+        return mutedPad;
+    }
+
+    private static bool TryAppendSelectiveMute(
+        StringBuilder sb,
+        IReadOnlyList<MuteTimeRange> mutes,
+        string? inputChannelLayout,
+        int inputChannelCount,
+        out string mutedPad)
+    {
+        mutedPad = "amuted";
+        var layoutName = ChannelLayoutHelper.ResolveLayoutName(inputChannelLayout, inputChannelCount);
+        var sourceChannels = ChannelLayoutHelper.GetChannels(layoutName, inputChannelCount);
+        if (string.IsNullOrEmpty(layoutName) || sourceChannels.Count == 0)
+        {
+            return false;
+        }
+
+        // Per source channel: edits that target it (after layout resolution).
+        var editsByChannel = new Dictionary<string, List<MuteTimeRange>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var ch in sourceChannels)
+        {
+            editsByChannel[ch] = [];
+        }
+
+        var anySelectiveHit = false;
+        foreach (var mute in mutes)
+        {
+            var targets = ChannelLayoutHelper.ResolveMuteTargets(mute.NormalizedChannels, sourceChannels);
+            // Named-channel edits always use the split path when the source has more than
+            // one channel (so we never collapse them to volume-all on a multi-channel file).
+            if (mute.IsSelectiveMute && sourceChannels.Count > 1)
+            {
+                anySelectiveHit = true;
+            }
+
+            foreach (var ch in targets)
+            {
+                editsByChannel[ch].Add(mute);
+            }
+        }
+
+        // If every channel ends up fully muted for the same windows, volume-all is simpler —
+        // but selective path is still correct. Prefer channelsplit only when at least one
+        // channel stays unmuted for part of the timeline.
+        if (!anySelectiveHit)
+        {
+            return false;
+        }
+
+        // channelsplit into labeled mono pads.
+        sb.Append(CultureInfo.InvariantCulture, $"[0:a]channelsplit=channel_layout={layoutName}");
+        foreach (var ch in sourceChannels)
+        {
+            sb.Append(CultureInfo.InvariantCulture, $"[{ch}]");
+        }
+
+        sb.Append(';');
+
+        var joinInputs = new List<string>();
+        foreach (var ch in sourceChannels)
+        {
+            var channelEdits = editsByChannel[ch];
+            if (channelEdits.Count == 0)
+            {
+                joinInputs.Add(ch);
+                continue;
+            }
+
+            var outPad = ch + "m";
+            sb.Append(CultureInfo.InvariantCulture, $"[{ch}]{AudioEditExpressions.BuildFilter(channelEdits)}[{outPad}];");
+            joinInputs.Add(outPad);
+        }
+
+        foreach (var pad in joinInputs)
+        {
+            sb.Append(CultureInfo.InvariantCulture, $"[{pad}]");
+        }
+
+        sb.Append(CultureInfo.InvariantCulture, $"join=inputs={joinInputs.Count}:channel_layout={layoutName}[amuted];");
+        return true;
+    }
+
+    /// <summary>
+    /// Appends duration-preserving video overlays in sidecar order. Output size never changes
+    /// (zoom scales to fill; crop pads; cover/blur/pixelate overlay a region or the full frame).
     /// </summary>
     /// <param name="sb">Filter graph builder.</param>
     /// <param name="effects">Video effects on the original timeline.</param>
@@ -159,9 +308,14 @@ internal static class EdlFilterComplexBuilder
 
     private static string BuildEffectFilters(VideoEffect effect, string srcPad, string fxPad)
     {
-        return effect.Kind == VideoEffectKind.Blur
-            ? BuildBlurFilters(effect, srcPad, fxPad)
-            : BuildZoomFilters(effect, srcPad, fxPad);
+        return effect.Kind switch
+        {
+            VideoEffectKind.Blur => BuildBlurFilters(effect, srcPad, fxPad),
+            VideoEffectKind.Cover or VideoEffectKind.Blank => BuildCoverFilters(effect, srcPad, fxPad),
+            VideoEffectKind.Pixelate => BuildPixelateFilters(effect, srcPad, fxPad),
+            VideoEffectKind.Crop => BuildCropFilters(effect, srcPad, fxPad),
+            _ => BuildZoomFilters(effect, srcPad, fxPad),
+        };
     }
 
     private static string BuildZoomFilters(VideoEffect effect, string srcPad, string fxPad)
@@ -194,6 +348,101 @@ internal static class EdlFilterComplexBuilder
             scale,
             cx,
             cy,
+            fxPad);
+    }
+
+    private static string BuildCropFilters(VideoEffect effect, string srcPad, string fxPad)
+    {
+        // Same keep-region as zoom, then pad back to the original frame size (letterbox/pillarbox).
+        if (effect.Box is { } box)
+        {
+            var end = effect.BoxEnd ?? box;
+            var w = F(box.Width);
+            var h = F(box.Height);
+            var xExpr = "max(0,min(iw-ow,iw*" + Unit(effect.StartTime, effect.EndTime, box.X, end.X) + "))";
+            var yExpr = "max(0,min(ih-oh,ih*" + Unit(effect.StartTime, effect.EndTime, box.Y, end.Y) + "))";
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "[{0}]crop=iw*{1}:ih*{2}:x='{3}':y='{4}',pad=2*trunc(iw/(2*{1})):2*trunc(ih/(2*{2})):2*trunc((ow-iw)/4):2*trunc((oh-ih)/4):black[{5}];",
+                srcPad,
+                w,
+                h,
+                xExpr,
+                yExpr,
+                fxPad);
+        }
+
+        var scale = F(effect.Scale);
+        var cx = Unit(effect.StartTime, effect.EndTime, effect.CenterX, effect.CenterXEnd ?? effect.CenterX);
+        var cy = Unit(effect.StartTime, effect.EndTime, effect.CenterY, effect.CenterYEnd ?? effect.CenterY);
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "[{0}]crop=iw/{1}:ih/{1}:x='max(0,min(iw-ow,iw*{2}-ow/2))':y='max(0,min(ih-oh,ih*{3}-oh/2))',pad=2*trunc(iw*{1}/2):2*trunc(ih*{1}/2):2*trunc((ow-iw)/4):2*trunc((oh-ih)/4):black[{4}];",
+            srcPad,
+            scale,
+            cx,
+            cy,
+            fxPad);
+    }
+
+    private static string BuildCoverFilters(VideoEffect effect, string srcPad, string fxPad)
+    {
+        const string fill = "drawbox=0:0:iw:ih:black:t=fill";
+        if (effect.Kind != VideoEffectKind.Blank && effect.Box is { } box)
+        {
+            var end = effect.BoxEnd ?? box;
+            var w = F(box.Width);
+            var h = F(box.Height);
+            var xExpr = "max(0,min(iw-ow,iw*" + Unit(effect.StartTime, effect.EndTime, box.X, end.X) + "))";
+            var yExpr = "max(0,min(ih-oh,ih*" + Unit(effect.StartTime, effect.EndTime, box.Y, end.Y) + "))";
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "[{0}]crop=2*trunc(iw*{1}/2):2*trunc(ih*{2}/2):x='{3}':y='{4}',{5}[{6}];",
+                srcPad,
+                w,
+                h,
+                xExpr,
+                yExpr,
+                fill,
+                fxPad);
+        }
+
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "[{0}]{1}[{2}];",
+            srcPad,
+            fill,
+            fxPad);
+    }
+
+    private static string BuildPixelateFilters(VideoEffect effect, string srcPad, string fxPad)
+    {
+        var size = F(Math.Clamp(effect.BlockSize, 2, 128));
+        var pix = "pixelize=w=" + size + ":h=" + size + ":mode=avg";
+        if (effect.Box is { } box)
+        {
+            var end = effect.BoxEnd ?? box;
+            var w = F(box.Width);
+            var h = F(box.Height);
+            var xExpr = "max(0,min(iw-ow,iw*" + Unit(effect.StartTime, effect.EndTime, box.X, end.X) + "))";
+            var yExpr = "max(0,min(ih-oh,ih*" + Unit(effect.StartTime, effect.EndTime, box.Y, end.Y) + "))";
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "[{0}]crop=2*trunc(iw*{1}/2):2*trunc(ih*{2}/2):x='{3}':y='{4}',{5}[{6}];",
+                srcPad,
+                w,
+                h,
+                xExpr,
+                yExpr,
+                pix,
+                fxPad);
+        }
+
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "[{0}]{1}[{2}];",
+            srcPad,
+            pix,
             fxPad);
     }
 
@@ -235,7 +484,7 @@ internal static class EdlFilterComplexBuilder
 
     private static string BuildOverlay(VideoEffect effect, string basePad, string fxPad, string outPad, string enable)
     {
-        if (effect.Kind == VideoEffectKind.Blur && effect.Box is { } box)
+        if (IsRegionalOverlay(effect) && effect.Box is { } box)
         {
             var end = effect.BoxEnd ?? box;
             var x = Unit(effect.StartTime, effect.EndTime, box.X, end.X);
@@ -260,6 +509,10 @@ internal static class EdlFilterComplexBuilder
             outPad);
     }
 
+    private static bool IsRegionalOverlay(VideoEffect effect)
+        => effect.Box is not null
+           && effect.Kind is VideoEffectKind.Blur or VideoEffectKind.Cover or VideoEffectKind.Pixelate;
+
     /// <summary>
     /// Linear 0–1 unit over [start,end] on the original timeline (FFmpeg expr).
     /// </summary>
@@ -278,6 +531,35 @@ internal static class EdlFilterComplexBuilder
 
     private static string F(double value)
         => value.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Resolves uncut source duration. The HLS media source reports the shortened
+    /// (post-cut) runtime, which must not be used as trim EOF.
+    /// </summary>
+    /// <param name="plan">EDL plan.</param>
+    /// <param name="mediaSourceDurationSeconds">Duration from the encoding job (edited when cuts exist).</param>
+    /// <returns>Original-timeline duration in seconds.</returns>
+    internal static double ResolveOriginalDuration(EdlEditPlan plan, double mediaSourceDurationSeconds)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        if (plan.OriginalDurationSeconds > 0.001)
+        {
+            return plan.OriginalDurationSeconds;
+        }
+
+        if (!plan.HasCuts || mediaSourceDurationSeconds <= 0)
+        {
+            return mediaSourceDurationSeconds;
+        }
+
+        var skipSeconds = 0.0;
+        foreach (var skip in MergeRanges(plan.SkipRanges))
+        {
+            skipSeconds += skip.EndTime - skip.StartTime;
+        }
+
+        return mediaSourceDurationSeconds + skipSeconds;
+    }
 
     /// <summary>
     /// Computes keep intervals as the complement of skip ranges on [0, duration).
@@ -363,6 +645,19 @@ internal static class EdlFilterComplexBuilder
         return result.Where(k => k.Item2 > k.Item1 + 0.001).ToList();
     }
 
+    private static IReadOnlyList<(double Start, double End)> TailKeepRange(
+        IReadOnlyList<(double Start, double End)> keep)
+    {
+        if (keep.Count == 0)
+        {
+            return keep;
+        }
+
+        var last = keep[^1];
+        var start = Math.Max(last.Start, last.End - 0.04);
+        return last.End > start + 0.001 ? [(start, last.End)] : keep;
+    }
+
     private static List<MuteTimeRange> MergeRanges(IReadOnlyList<MuteTimeRange> ranges)
     {
         var sorted = ranges.Where(r => r.EndTime > r.StartTime).OrderBy(r => r.StartTime).ToList();
@@ -380,21 +675,6 @@ internal static class EdlFilterComplexBuilder
         }
 
         return merged;
-    }
-
-    private static string BuildVolumeExpression(IReadOnlyList<MuteTimeRange> ranges)
-    {
-        var sorted = ranges.OrderBy(r => r.StartTime).ToList();
-        var expr = "1";
-        for (var i = sorted.Count - 1; i >= 0; i--)
-        {
-            var r = sorted[i];
-            var s = r.StartTime.ToString(CultureInfo.InvariantCulture);
-            var e = r.EndTime.ToString(CultureInfo.InvariantCulture);
-            expr = "if(between(t," + s + "," + e + "),0," + expr + ")";
-        }
-
-        return expr;
     }
 }
 

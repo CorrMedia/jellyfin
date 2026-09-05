@@ -1,21 +1,23 @@
 # Jellyfin CorrMedia Plugin
 
-A Jellyfin plugin that applies sidecar **mute**, **zoom**, **blur**, and **skip** from `*.corr.json`. The product direction is **two deliveries** of the same item — untouched original vs server-side edited stream — not client Seek/Mute/Pause tricks. See [`ROADMAP.md`](ROADMAP.md).
+A Jellyfin plugin that applies sidecar **mute**, **volume**, **beep**, **zoom**, **crop**, **blur**, **pixelate**, **cover**, **blank**, and **skip** from `*.corr.json`. The product direction is **two deliveries** of the same item — untouched original vs server-side edited stream — not client Seek/Mute/Pause tricks. See [`ROADMAP.md`](ROADMAP.md).
 
 ## Features
 
 - **Dual delivery** — When a sidecar `.corr.json` exists, PlaybackInfo offers **Original** plus **`{sourceName} (Edited)`**; edits apply only to Edited
 - **Skip segments** — Server-side cut (omit from encode) on **patched Jellyfin**; no client Seek
-- **Mute audio** — Server-side FFmpeg mute (`-af` when mute-only; inside the edit graph when zoom/blur/skips exist)
-- **Zoom / punch-in** — Timed crop+scale that fills the frame (does not change duration)
-- **Box blur** — Timed full-frame or regional blur (does not change duration)
-- **Mixed actions** — Non-length-altering edits (mute, zoom, blur) run before length-altering edits (skip/cut) from the same sidecar
+- **Mute / volume / beep** — Server-side FFmpeg audio (`-af` when all-channel audio-only; inside the edit graph when selective channels, video effects, or skips exist). Optional `channels` names apply before any stereo downmix.
+- **Zoom / punch-in** — Timed crop+scale that fills the frame (does not change duration or output size)
+- **Crop** — Timed keep-region with black padding so output size stays the same
+- **Box blur / pixelate / cover** — Timed full-frame or regional hide (does not change duration)
+- **Blank** — Full-frame black video for a range; audio continues
+- **Mixed actions** — Non-length-altering edits run before length-altering edits (skip/cut) from the same sidecar
 - **Prefer Edited** — Config default puts Edited first for clients that take the first media source
 - **Extensible schema** — Unknown `action` values are ignored so new edit types can be added without breaking playback
 
 ## How It Works
 
-For each video, the plugin looks for `{stem}.corr.json` next to the file. If it has mute, zoom, blur, and/or skip edits, the plugin adds an Edited media source and (when that source is selected) applies them during encode.
+For each video, the plugin looks for `{stem}.corr.json` next to the file. If it has playback edits, the plugin adds an Edited media source and (when that source is selected) applies them during encode.
 
 Example: watching `/media/movies/MyMovie.mkv` requires `/media/movies/MyMovie.corr.json`.
 
@@ -23,18 +25,24 @@ Schema: [`schema/corr.schema.json`](schema/corr.schema.json).
 
 ### corr.json format
 
-All `start` / `end` values are seconds on the **original** source timeline and runtime. They are never rewritten to account for cuts, crops, or other length-changing edits.
+All `start` / `end` values are seconds on the **original** source timeline and runtime. They are never rewritten to account for cuts or other length-changing edits.
 
-**Application order:** non-length-altering modifications (mute, zoom, blur) are applied first; length-altering modifications (skip/cut, and later crop) are applied after. A mute or zoom at `1800–2100` always means those seconds of the original file, even if earlier skips removed other ranges.
+**Application order:** non-length-altering modifications (mute, volume, beep, zoom, crop, blur, pixelate, cover, blank) are applied first; length-altering modifications (skip/cut) are applied after. A mute or zoom at `1800–2100` always means those seconds of the original file, even if earlier skips removed other ranges. Output frame size never changes: crop pads with black rather than resizing the stream.
 
 | `action` | Meaning |
 |----------|---------|
-| `mute` | Silence audio for the range; video continues (does not change duration) |
+| `mute` | Silence audio for the range; video continues. Optional `channels` lists FFmpeg labels (`FC`, `FL`, `FR`, `LFE`, …) on the **source** layout before any stereo downmix. Omit/`[]` = all channels. Names missing from the source are ignored; if none remain, the edit falls back to all channels. |
+| `volume` | Same as mute but scales audio by `gain` (0–1, default 0.2) instead of silencing. |
+| `beep` | Replace audio with a sine tone (`frequency` Hz, default 1000; `gain` amplitude, default 0.3). Optional `channels`. |
 | `zoom` | Punch in: crop a region and scale it to fill the frame (`punch` is an alias) |
+| `crop` | Keep a region and pad with black so the output size stays the same |
 | `blur` | Box-blur the frame or a `box` region (`boxblur` is an alias) |
+| `pixelate` | Pixelate the frame or a `box` region (`mosaic` is an alias); `size` is block size in pixels (default 16) |
+| `cover` | Solid black rectangle over the frame or a `box` (`blackout` is an alias) |
+| `blank` | Full-frame black video; audio continues |
 | `skip` | Omit the range from the delivered stream (cut; shortens duration) |
 
-Other `action` values are reserved and ignored. Zoom uses `scale` + `x`/`y` (normalized center) or a `box` to fill the frame; pan with `x_end`/`y_end` or `box_end`. Blur uses `radius` and optional `box` (one FFmpeg boxblur pass; radius is the only strength control); pan a regional blur with `box_end`.
+Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/`y` (normalized center) or a `box`; pan with `x_end`/`y_end` or `box_end`. Blur uses `radius` and optional `box`; pan a regional blur/cover/pixelate with `box_end`.
 
 **Skip-only:**
 ```json
@@ -55,6 +63,17 @@ Other `action` values are reserved and ignored. Zoom uses `scale` + `x`/`y` (nor
     { "id": "edit_001", "start": 0, "end": 300, "action": "mute" },
     { "id": "edit_002", "start": 300, "end": 600, "action": "skip" },
     { "id": "edit_003", "start": 1800, "end": 2100, "action": "mute" }
+  ]
+}
+```
+
+**Named-channel mute (5.1 center / fronts; falls back to all channels on stereo):**
+```json
+{
+  "schema_version": "1.0",
+  "edits": [
+    { "id": "edit_001", "start": 10, "end": 20, "action": "mute", "channels": ["FC"] },
+    { "id": "edit_002", "start": 30, "end": 40, "action": "mute", "channels": ["FL", "FR", "FC"] }
   ]
 }
 ```
@@ -87,6 +106,30 @@ Other `action` values are reserved and ignored. Zoom uses `scale` + `x`/`y` (nor
 }
 ```
 
+**Crop (keep a region, pad to original size):**
+```json
+{
+  "schema_version": "1.0",
+  "edits": [
+    { "id": "edit_001", "start": 10, "end": 20, "action": "crop", "scale": 2, "x": 0.5, "y": 0.45 }
+  ]
+}
+```
+
+**Cover, pixelate, blank, volume, beep:**
+```json
+{
+  "schema_version": "1.0",
+  "edits": [
+    { "id": "edit_001", "start": 8, "end": 16, "action": "cover", "box": { "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4 } },
+    { "id": "edit_002", "start": 20, "end": 28, "action": "pixelate", "size": 24, "box": { "x": 0.6, "y": 0.3, "width": 0.25, "height": 0.3 } },
+    { "id": "edit_003", "start": 30, "end": 34, "action": "blank" },
+    { "id": "edit_004", "start": 40, "end": 50, "action": "volume", "gain": 0.2 },
+    { "id": "edit_005", "start": 55, "end": 58, "action": "beep", "frequency": 1000 }
+  ]
+}
+```
+
 See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 
 ## Installation
@@ -110,7 +153,7 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 
 ## Known Limitations
 
-* **Mute/zoom/blur/cut require patched Jellyfin** (core overlay). On stock Jellyfin, the Edited source may appear but filters are not applied.
+* **Edited encode requires patched Jellyfin** (core overlay). On stock Jellyfin, the Edited source may appear but filters are not applied.
 * Edited source forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability
 * Edited `RunTimeTicks` is original duration minus skip totals (approximate for scrubbing)
 * Sidecars must sit beside media files (`MyMovie.mkv` → `MyMovie.corr.json`)
@@ -128,11 +171,11 @@ PRs welcome. Prefer work aligned with the roadmap (server-side delivery over new
 
 ### v1.1.0 (in progress)
 - Sidecar format is `*.corr.json` (EDL files are no longer read)
-- Mute and skip via `edits[].action`; zoom/blur as duration-preserving video effects; unknown actions ignored
+- Mute, volume, and beep via `edits[].action`; zoom/crop/blur/pixelate/cover/blank as duration-preserving video effects; unknown actions ignored
 - Pause support removed
 - Phase 1: in-process server mute (`EdlEditStore` + `SessionAudioFilterProvider`)
 - Phase 3: mute-then-cut via `ISessionMediaEditGraphProvider`; HLS forced when cuts exist so seeking reuses segments
-- Zoom and boxblur share the same original-timeline video-effect stage (before cuts)
+- Zoom, crop, boxblur, pixelate, cover, and blank share the same original-timeline video-effect stage (before cuts)
 - Dual delivery (original vs edited): see [`ROADMAP.md`](ROADMAP.md)
 
 ### v1.0.0.1

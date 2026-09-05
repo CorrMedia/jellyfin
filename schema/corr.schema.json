@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/CorrMedia/jellyfin/schema/corr.schema.json",
   "title": "Corr edit sidecar",
-  "description": "Sidecar next to a media file (MyMovie.mkv → MyMovie.corr.json). Playback applies mute, zoom, blur, and skip. Other actions are reserved. Non-length-altering edits (mute, zoom, blur) are applied before length-altering edits (skip/cut, and later crop). All times are on the original source timeline and are never adjusted for cuts or crops.",
+  "description": "Sidecar next to a media file (MyMovie.mkv → MyMovie.corr.json). Playback applies mute, volume, beep, zoom, crop, blur, pixelate, cover, blank, and skip. Other actions are reserved. Non-length-altering edits are applied before length-altering edits (skip/cut). Output frame size never changes (crop pads with black). All times are on the original source timeline and are never adjusted for cuts.",
   "type": "object",
   "required": ["schema_version", "edits"],
   "additionalProperties": true,
@@ -30,46 +30,71 @@
         "additionalProperties": true,
         "properties": {
           "id": { "type": "string" },
-          "start": { "type": "number", "minimum": 0, "description": "Range start in seconds on the original source timeline. Never adjusted for cuts, crops, or other length-changing edits." },
-          "end": { "type": "number", "description": "Range end in seconds on the original source timeline; must be greater than start. Never adjusted for cuts, crops, or other length-changing edits." },
+          "start": { "type": "number", "minimum": 0, "description": "Range start in seconds on the original source timeline. Never adjusted for cuts or other length-changing edits." },
+          "end": { "type": "number", "description": "Range end in seconds on the original source timeline; must be greater than start. Never adjusted for cuts or other length-changing edits." },
           "action": {
             "type": "string",
             "minLength": 1,
-            "description": "Playback applies \"mute\", \"zoom\" (alias \"punch\"), \"blur\" (alias \"boxblur\"), and \"skip\". Other values are ignored until supported."
+            "description": "Playback applies mute, volume, beep, zoom (alias punch), crop, blur (alias boxblur), pixelate (alias mosaic), cover (alias blackout), blank, and skip. Other values are ignored until supported."
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "description": "FFmpeg channel label, e.g. FL, FR, FC, LFE, BL, BR, SL, SR."
+            },
+            "description": "For mute, volume, and beep: named source channels to affect (FC, FL, FR, …). Omit or empty = all channels. Names not present in the source layout are ignored; if none remain, the edit falls back to all channels (so FC-only still works on stereo)."
+          },
+          "gain": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Volume: linear source gain (default 0.2). Beep: tone amplitude (default 0.3). Ignored for mute."
+          },
+          "frequency": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Beep tone frequency in Hz. Default 1000."
           },
           "scale": {
             "type": "number",
             "exclusiveMinimum": 1,
-            "description": "Zoom factor (> 1). Default 2. Ignored when box is set for zoom."
+            "description": "Zoom/crop factor (> 1). Default 2. Ignored when box is set."
           },
           "x": {
             "type": "number",
             "minimum": 0,
             "maximum": 1,
-            "description": "Zoom center X at range start, 0–1. Default 0.5."
+            "description": "Zoom/crop center X at range start, 0–1. Default 0.5."
           },
           "y": {
             "type": "number",
             "minimum": 0,
             "maximum": 1,
-            "description": "Zoom center Y at range start, 0–1. Default 0.5."
+            "description": "Zoom/crop center Y at range start, 0–1. Default 0.5."
           },
           "x_end": {
             "type": "number",
             "minimum": 0,
             "maximum": 1,
-            "description": "Zoom center X at range end. Linear pan from x. Omit for a static zoom."
+            "description": "Zoom/crop center X at range end. Linear pan from x. Omit for a static zoom/crop."
           },
           "y_end": {
             "type": "number",
             "minimum": 0,
             "maximum": 1,
-            "description": "Zoom center Y at range end. Linear pan from y. Omit for a static zoom."
+            "description": "Zoom/crop center Y at range end. Linear pan from y. Omit for a static zoom/crop."
           },
           "radius": {
             "type": "number",
             "exclusiveMinimum": 0,
             "description": "Boxblur luma radius in pixels (single pass; power is not configurable). Default 8. Clamped per plane so luma cannot exceed half the region and chroma cannot exceed half the subsampled chroma size."
+          },
+          "size": {
+            "type": "number",
+            "exclusiveMinimum": 1,
+            "description": "Pixelate block size in pixels. Default 16. Clamped to 2–128."
           },
           "box": {
             "type": "object",
@@ -80,7 +105,7 @@
               "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "description": "Width, 0–1." },
               "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "description": "Height, 0–1." }
             },
-            "description": "Normalized region at range start. For zoom: crop this box and scale it to fill the frame. For blur: blur only this region (omit for full-frame blur)."
+            "description": "Normalized region at range start. Zoom: crop this box and scale it to fill the frame. Crop: keep this box and pad with black to the original frame size. Blur/cover/pixelate: apply only inside this region (omit for full-frame). Ignored for blank."
           },
           "box_end": {
             "type": "object",

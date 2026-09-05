@@ -1,0 +1,35 @@
+{
+  "$schema": "../schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Example named-channel mute (5.1 source)",
+    "runtime": 120
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 10.0,
+      "end": 20.0,
+      "action": "mute",
+      "description": "Mute all channels (omit channels)"
+    },
+    {
+      "id": "edit_002",
+      "start": 30.0,
+      "end": 40.0,
+      "action": "mute",
+      "channels": ["FC"],
+      "categories": ["dialogue"],
+      "description": "Mute center only on 5.1; on stereo (no FC) falls back to all channels"
+    },
+    {
+      "id": "edit_003",
+      "start": 50.0,
+      "end": 60.0,
+      "action": "mute",
+      "channels": ["FL", "FR", "FC"],
+      "categories": ["dialogue"],
+      "description": "Mute fronts + center on 5.1 before any stereo downmix"
+    }
+  ]
+}

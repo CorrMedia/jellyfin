@@ -36,7 +36,7 @@ Plugins build against patched core when `jellyfin-source` exists in this repo.
 
 ### 4. Run Jellyfin
 
-Enable CorrMedia. Place `{stem}.corr.json` next to media (`action`: `mute`, `zoom`, `blur`, or `skip`). Times are on the original source timeline; mute/zoom/blur are applied before skip/cut.
+Enable CorrMedia. Place `{stem}.corr.json` next to media. Times are on the original source timeline; non-length-altering edits are applied before skip/cut. Output frame size never changes.
 
 ## Validation
 
