@@ -10,24 +10,24 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia
 {
     /// <summary>
-    /// Clears EDL plans when sessions end. Plans are loaded only for Edited sources.
+    /// Clears corr.json edit plans when sessions end. Plans are loaded only for Edited sources.
     /// </summary>
-    public sealed class SkipEdl : IHostedService, IDisposable
+    public sealed class CorrSessionCleanup : IHostedService, IDisposable
     {
         private readonly ISessionManager _sessionManager;
-        private readonly ILogger<SkipEdl> _logger;
+        private readonly ILogger<CorrSessionCleanup> _logger;
         private readonly EdlEditStore _edlEditStore;
         private bool _disposed;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SkipEdl"/> class.
+        /// Initializes a new instance of the <see cref="CorrSessionCleanup"/> class.
         /// </summary>
         /// <param name="sessionManager">Session manager.</param>
         /// <param name="logger">Logger.</param>
-        /// <param name="edlEditStore">EDL store.</param>
-        public SkipEdl(
+        /// <param name="edlEditStore">Edit plan store.</param>
+        public CorrSessionCleanup(
             ISessionManager sessionManager,
-            ILogger<SkipEdl> logger,
+            ILogger<CorrSessionCleanup> logger,
             EdlEditStore edlEditStore)
         {
             _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
@@ -40,7 +40,7 @@ namespace Jellyfin.Plugin.CorrMedia
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation(
-                "SkipEdl started — EDL plans load only for Edited media sources; Original stays untouched.");
+                "CorrSessionCleanup started — corr.json plans load only for Edited media sources; Original stays untouched.");
             return Task.CompletedTask;
         }
 

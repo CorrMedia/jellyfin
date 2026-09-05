@@ -59,13 +59,13 @@ public sealed class SessionEdlDeliveryHint : ISessionEdlDeliveryHint
             return false;
         }
 
-        var edlPath = EdlFile.GetPath(path);
-        if (!File.Exists(edlPath))
+        var corrPath = CorrFile.GetPath(path);
+        if (!File.Exists(corrPath))
         {
             return false;
         }
 
-        var (_, skips) = EdlFile.ParseMuteAndSkip(edlPath);
+        var (_, skips) = CorrFile.ParseMuteAndSkip(corrPath);
         return skips.Count > 0;
     }
 }

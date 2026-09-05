@@ -1,24 +1,49 @@
 {
-    "schema_version": "1.0",
-    "media": {
-      "title": "Movie Title",
-      "year": 2025,
-      "edition": "theatrical",
-      "fps": 23.976,
-      "runtime": 7200.5
+  "$schema": "schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Test Movie",
+    "year": 2025,
+    "edition": "test",
+    "fps": 24,
+    "runtime": 90
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 0.0,
+      "end": 10.0,
+      "action": "mute",
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Mute 0–10s; ORIG counter still advances"
     },
-    "edits": [
-      {
-        "id": "edit_001",
-        "start": 854.2,
-        "end": 861.7,
-        "action": "skip",
-        "categories": [
-          "nudity",
-          "sexual_content"
-        ],
-        "severity": 3,
-        "description": "Brief nudity"
-      }
-    ]
-  }
+    {
+      "id": "edit_002",
+      "start": 15.0,
+      "end": 20.0,
+      "action": "skip",
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Cut 15–20s; after ORIG 14s the next frame is ORIG 20s"
+    },
+    {
+      "id": "edit_003",
+      "start": 30.0,
+      "end": 35.0,
+      "action": "mute",
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Mute 30–35s; ORIG counter still advances"
+    },
+    {
+      "id": "edit_004",
+      "start": 60.0,
+      "end": 65.0,
+      "action": "mute",
+      "categories": ["test"],
+      "severity": 1,
+      "description": "Mute 60–65s; ORIG counter still advances"
+    }
+  ]
+}

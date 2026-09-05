@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services
 {
     /// <summary>
-    /// Loads EDL mute/skip into <see cref="EdlEditStore"/> before the first stream request,
+    /// Loads corr.json mute/skip into <see cref="EdlEditStore"/> before the first stream request,
     /// only when the client selected the Edited media source.
     /// </summary>
     public sealed class SessionMuteRangeLoader : ISessionMuteRangeLoader
@@ -72,13 +72,13 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 return Task.CompletedTask;
             }
 
-            var edlPath = EdlFile.GetPath(path);
-            if (!File.Exists(edlPath))
+            var corrPath = CorrFile.GetPath(path);
+            if (!File.Exists(corrPath))
             {
                 return Task.CompletedTask;
             }
 
-            var (mutes, skips) = EdlFile.ParseMuteAndSkip(edlPath);
+            var (mutes, skips) = CorrFile.ParseMuteAndSkip(corrPath);
             if (mutes.Count == 0 && skips.Count == 0)
             {
                 return Task.CompletedTask;

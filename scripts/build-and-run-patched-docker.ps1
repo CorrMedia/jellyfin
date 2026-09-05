@@ -5,7 +5,7 @@
 .DESCRIPTION
     1. Builds the Docker image jellyfin-patched:local from jellyfin-source (patched server).
     2. Builds CorrMedia (patched, net9.0) and copies it to docker/jellyfin/plugins.
-    2b. Copies test-movie.edl and test-movie.mkv from repo root to docker/jellyfin/media (if present) for EDL testing.
+    2b. Copies test-movie.corr.json and test-movie.mkv from repo root to docker/jellyfin/media (if present) for edit testing.
     3. Starts the container with docker-compose.patched.yml.
 .PARAMETER SkipImageBuild
     If set, skip building the Docker image (use existing jellyfin-patched:local).
@@ -52,32 +52,39 @@ if (-not $SkipImageBuild) {
 
 # 2. Build and stage CorrMedia
 if (-not $SkipPlugins) {
-    $skipProject = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
-    $skipOutDir = if (Test-Path (Join-Path $repoRoot 'jellyfin-source\MediaBrowser.Controller')) { 'net9.0' } else { 'net8.0' }
-    $skipDll = Join-Path $repoRoot "Jellyfin.Plugin.CorrMedia\bin\Debug\$skipOutDir\Jellyfin.Plugin.CorrMedia.dll"
+    $pluginProject = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
+    $pluginOutDir = 'net9.0'
+    $pluginDll = Join-Path $repoRoot "Jellyfin.Plugin.CorrMedia\bin\Debug\$pluginOutDir\Jellyfin.Plugin.CorrMedia.dll"
 
     Write-Host 'Building CorrMedia plugin...'
-    dotnet build $skipProject -c Debug
+    dotnet build $pluginProject -c Debug
     if ($LASTEXITCODE -ne 0) { throw 'CorrMedia build failed.' }
 
-    $skipTargetDir = Join-Path $pluginRoot 'Jellyfin.Plugin.CorrMedia'
-    New-Item -ItemType Directory -Force -Path $skipTargetDir | Out-Null
-    Copy-Item -Force $skipDll $skipTargetDir
-    Copy-Item -Force (Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json') $skipTargetDir
+    $pluginTargetDir = Join-Path $pluginRoot 'Jellyfin.Plugin.CorrMedia'
+    New-Item -ItemType Directory -Force -Path $pluginTargetDir | Out-Null
+    Copy-Item -Force $pluginDll $pluginTargetDir
+    Copy-Item -Force (Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json') $pluginTargetDir
+    Copy-Item -Force (Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json') (Join-Path $pluginTargetDir 'meta.json')
 
     Write-Host 'CorrMedia staged to docker\jellyfin\plugins.'
+
+    $legacySkipDir = Join-Path $pluginRoot 'Jellyfin.Plugin.CorrMedia'
+    if (Test-Path $legacySkipDir) {
+        Remove-Item -Recurse -Force $legacySkipDir
+        Write-Host 'Removed leftover CorrMedia plugin folder.'
+    }
 } else {
     Write-Host 'Skipping plugin build and stage.'
 }
 
-# 2b. Ensure test media/EDL are in docker/jellyfin/media (for EDL mute testing)
+# 2b. Ensure test media/corr sidecar are in docker/jellyfin/media
 $mediaDir = Join-Path $repoRoot 'docker\jellyfin\media'
 New-Item -ItemType Directory -Force -Path $mediaDir | Out-Null
-$rootEdl = Join-Path $repoRoot 'test-movie.edl'
+$rootCorr = Join-Path $repoRoot 'test-movie.corr.json'
 $rootMkv = Join-Path $repoRoot 'test-movie.mkv'
-if (Test-Path $rootEdl) {
-    Copy-Item -Force $rootEdl (Join-Path $mediaDir 'test-movie.edl')
-    Write-Host 'Copied test-movie.edl to docker\jellyfin\media.'
+if (Test-Path $rootCorr) {
+    Copy-Item -Force $rootCorr (Join-Path $mediaDir 'test-movie.corr.json')
+    Write-Host 'Copied test-movie.corr.json to docker\jellyfin\media.'
 }
 if (Test-Path $rootMkv) {
     Copy-Item -Force $rootMkv (Join-Path $mediaDir 'test-movie.mkv')

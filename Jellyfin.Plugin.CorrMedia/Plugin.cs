@@ -29,6 +29,10 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public override string Name => "CorrMedia";
 
     /// <inheritdoc />
+    public override string Description =>
+        "Applies sidecar .corr.json mute and skip during playback on patched Jellyfin.";
+
+    /// <inheritdoc />
     public override Guid Id => Guid.Parse("d477f9fe-bde6-467c-88ba-5336048f955c");
 
     /// <summary>

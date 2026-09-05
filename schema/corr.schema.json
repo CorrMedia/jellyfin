@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/CorrMedia/jellyfin/schema/corr.schema.json",
+  "title": "Corr edit sidecar",
+  "description": "Sidecar next to a media file (MyMovie.mkv → MyMovie.corr.json). Playback currently applies mute and skip; other actions are reserved. Non-length-altering edits (mute) are applied before length-altering edits (skip/cut, and later crop). All times are on the original source timeline and are never adjusted for cuts or crops.",
+  "type": "object",
+  "required": ["schema_version", "edits"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Corr document version (currently \"1.0\")."
+    },
+    "media": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "title": { "type": "string" },
+        "year": { "type": "integer" },
+        "edition": { "type": "string" },
+        "fps": { "type": "number" },
+        "runtime": { "type": "number", "description": "Original source runtime in seconds (not the edited duration)." }
+      }
+    },
+    "edits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["start", "end", "action"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "start": { "type": "number", "minimum": 0, "description": "Range start in seconds on the original source timeline. Never adjusted for cuts, crops, or other length-changing edits." },
+          "end": { "type": "number", "description": "Range end in seconds on the original source timeline; must be greater than start. Never adjusted for cuts, crops, or other length-changing edits." },
+          "action": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Playback applies \"mute\" and \"skip\". Other values are ignored until supported."
+          },
+          "categories": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "severity": { "type": "integer" },
+          "description": { "type": "string" }
+        }
+      }
+    }
+  }
+}

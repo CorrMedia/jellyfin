@@ -420,7 +420,7 @@ public class MediaInfoHelper
 
         return Guid.TryParse(left, out var leftGuid)
             && Guid.TryParse(right, out var rightGuid)
-            && leftGuid == rightGuid;
+            && leftGuid.Equals(rightGuid);
     }
 
     /// <summary>

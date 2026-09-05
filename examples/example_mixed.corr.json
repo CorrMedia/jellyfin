@@ -1,0 +1,32 @@
+{
+  "$schema": "../schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Example mixed mute and skip",
+    "runtime": 2100
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 0.0,
+      "end": 300.0,
+      "action": "mute",
+      "description": "Mute intro"
+    },
+    {
+      "id": "edit_002",
+      "start": 300.0,
+      "end": 600.0,
+      "action": "skip",
+      "categories": ["commercial"],
+      "description": "Skip commercials 5–10 minutes"
+    },
+    {
+      "id": "edit_003",
+      "start": 1800.0,
+      "end": 2100.0,
+      "action": "mute",
+      "description": "Mute outro (original-timeline 1800–2100, not shifted for the earlier skip)"
+    }
+  ]
+}

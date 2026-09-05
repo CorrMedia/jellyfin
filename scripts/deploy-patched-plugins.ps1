@@ -3,7 +3,7 @@
 .SYNOPSIS
     Builds CorrMedia (with patched core ref when available) and copies it into a Jellyfin plugins folder.
 .DESCRIPTION
-    Builds CorrMedia from this repo. When jellyfin-source exists, the plugin is built against the patched core (net9.0).
+    Builds CorrMedia from this repo against Jellyfin 10.11.11 (net9.0). When jellyfin-source exists, the plugin is built against the patched core.
     Deploys CorrMedia only.
 .PARAMETER TargetPluginsPath
     Directory where Jellyfin looks for plugins.
@@ -26,18 +26,19 @@ if (-not $RepoRoot) {
     $RepoRoot = (Resolve-Path (Join-Path $scriptDir '..')).Path
 }
 
-$skipProject = Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
-$skipOut = Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\bin\Debug'
-$tfm = if (Test-Path (Join-Path $RepoRoot 'jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')) { 'net9.0' } else { 'net8.0' }
-$skipDll = Join-Path $skipOut "$tfm\Jellyfin.Plugin.CorrMedia.dll"
+$pluginProject = Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
+$pluginOut = Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\bin\Debug'
+$tfm = 'net9.0'
+$pluginDll = Join-Path $pluginOut "$tfm\Jellyfin.Plugin.CorrMedia.dll"
 
 Write-Host "Building CorrMedia ($tfm)..."
-dotnet build "$skipProject" -c Debug
+dotnet build "$pluginProject" -c Debug
 if ($LASTEXITCODE -ne 0) { throw "CorrMedia build failed." }
 
-$skipTargetDir = Join-Path $TargetPluginsPath 'Jellyfin.Plugin.CorrMedia'
-New-Item -ItemType Directory -Force -Path $skipTargetDir | Out-Null
-Copy-Item -Force $skipDll $skipTargetDir
-Copy-Item -Force (Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json') $skipTargetDir
+$pluginTargetDir = Join-Path $TargetPluginsPath 'Jellyfin.Plugin.CorrMedia'
+New-Item -ItemType Directory -Force -Path $pluginTargetDir | Out-Null
+Copy-Item -Force $pluginDll $pluginTargetDir
+Copy-Item -Force (Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json') $pluginTargetDir
+Copy-Item -Force (Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json') (Join-Path $pluginTargetDir 'meta.json')
 
 Write-Host "CorrMedia deployed to $TargetPluginsPath."

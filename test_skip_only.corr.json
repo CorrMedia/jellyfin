@@ -1,0 +1,24 @@
+{
+  "$schema": "schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Skip only",
+    "runtime": 150
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 0.0,
+      "end": 30.0,
+      "action": "skip",
+      "description": "Skip first 30 seconds"
+    },
+    {
+      "id": "edit_002",
+      "start": 120.0,
+      "end": 150.0,
+      "action": "skip",
+      "description": "Skip 2:00–2:30"
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 # (Build context must include jellyfin-source and docker/.)
 
 # Use official image for ffmpeg, jellyfin-web, and runtime env
-ARG JELLYFIN_BASE=jellyfin/jellyfin:10.10.7
+ARG JELLYFIN_BASE=jellyfin/jellyfin:10.11.11
 FROM ${JELLYFIN_BASE} AS base
 
 # Build the patched server (same repo layout as jellyfin-packaging expects).

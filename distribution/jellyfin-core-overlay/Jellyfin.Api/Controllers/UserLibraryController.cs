@@ -91,7 +91,7 @@ public class UserLibraryController : BaseJellyfinApiController
             : _libraryManager.GetItemById<BaseItem>(itemId, user);
         if (item is null)
         {
-            // jellyfin-web 10.10.x calls GetItem with the Version dropdown value, which for
+            // jellyfin-web 10.10/10.11 calls GetItem with the Version dropdown value, which for
             // CorrMedia Edited sources is a synthetic Guid, not a library item id.
             foreach (var hint in HttpContext.RequestServices.GetServices<ISessionEdlDeliveryHint>())
             {

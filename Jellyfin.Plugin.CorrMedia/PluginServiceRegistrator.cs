@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.CorrMedia
         public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
         {
             serviceCollection.AddSingleton<EdlEditStore>();
-            serviceCollection.AddHostedService<SkipEdl>();
+            serviceCollection.AddHostedService<CorrSessionCleanup>();
 
 #if PATCHED_CORE
             serviceCollection.AddSingleton<MediaBrowser.Controller.MediaEncoding.ISessionAudioFilterProvider, SessionAudioFilterProvider>();

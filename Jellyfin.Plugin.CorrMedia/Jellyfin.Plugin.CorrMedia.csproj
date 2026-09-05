@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.CorrMedia</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -11,13 +11,12 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="Exists('..\jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')">
-    <TargetFramework>net9.0</TargetFramework>
     <DefineConstants>$(DefineConstants);PATCHED_CORE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Jellyfin.Controller" Version="10.10.7" Condition="!Exists('..\jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')" />
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.11" Condition="!Exists('..\jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')" />
     <ProjectReference Include="..\jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj" Condition="Exists('..\jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')" />
-    <PackageReference Include="Jellyfin.Model" Version="10.10.7" Condition="!Exists('..\jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')" />
+    <PackageReference Include="Jellyfin.Model" Version="10.11.11" Condition="!Exists('..\jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')" />
   </ItemGroup>
 
   <ItemGroup>

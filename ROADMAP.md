@@ -5,16 +5,18 @@
 Offer **two deliveries** of the same library item:
 
 1. **Original** — untouched file (direct play / normal remux / normal transcode).
-2. **EDL-applied** — a stream produced by the server with Edit Decision List changes baked in.
+2. **Edited** — a stream produced by the server with sidecar `.corr.json` mute/skip baked in.
 
-Primary EDL actions:
+Primary actions:
 
-- **Mute** (EDL type 1) — silence audio for a range; video continues.
-- **Skip** (EDL type 3) — remove that range from the delivered timeline (cut / concat), not client seek.
+- **Mute** — silence audio for a range; video continues (does not change duration).
+- **Skip** — remove that range from the delivered timeline (cut / concat), not client seek.
 
-**Pause is out of scope and removed (Phase 0).** Classic EDL type `2` is a scene marker, not “pause playback.” Type `2` may later map to MediaSegments scene/annotation metadata; it will not drive playback control.
+**Timeline rule:** Non-length-altering modifications (mute) are applied before length-altering modifications (skip/cut, and later crop). Every edit’s `start` / `end` is on the original source runtime; times are never rewritten after cuts or crops.
 
-Later: let the user choose **which EDL ranges to honor** (e.g. skip commercials but keep muted dialogue, or ignore a specific range) when requesting the EDL-applied version.
+**Pause is out of scope and removed (Phase 0).** Extra `action` values in corr.json are ignored until implemented (e.g. scene markers / POIs).
+
+Later: let the user choose **which edits to honor** (e.g. skip commercials but keep muted dialogue, or ignore a specific range) when requesting the edited version.
 
 This is **server-side delivery**, not client Seek/Mute/Pause tricks. Clients should only pick which version (and later, which rules) to play.
 
@@ -34,9 +36,9 @@ This is **server-side delivery**, not client Seek/Mute/Pause tricks. Clients sho
 
 | Concern | MediaSegments | CorrMedia (this roadmap) |
 |--------|---------------|---------------------------|
-| Data | Typed ranges in Jellyfin DB | Sidecar `.edl` (and later user overrides) |
+| Data | Typed ranges in Jellyfin DB | Sidecar `.corr.json` (and later user overrides) |
 | Who acts | Client (skip button / auto-skip) | Server (FFmpeg mute / cut) |
-| Delivery | Same file, client jumps | Alternate “EDL-applied” stream |
+| Delivery | Same file, client jumps | Alternate “edited” stream |
 
 Optional later work: publish EDL ranges as MediaSegments so stock clients can show skip UI on the **original** version, while the **EDL-applied** version remains the hard cut/mute path.
 
@@ -46,11 +48,11 @@ Optional later work: publish EDL ranges as MediaSegments so stock clients can sh
 
 | Area | Status |
 |------|--------|
-| EDL parse (mute / skip; type 2 ignored) | Done (Phase 0) |
+| corr.json parse (mute / skip; other actions ignored) | Done |
 | Client Seek skip | **Removed** — cuts are server-side mute-then-cut |
 | Server mute via FFmpeg | Done — mute-only `-af`, or inside edit graph when cuts exist |
 | Server skip (cut) | Done (Phase 3) — `ISessionMediaEditGraphProvider` mute-then-cut `filter_complex` |
-| Dual version (original vs EDL) | Done (Phase 2) — Original + `{Title} (Edited)` MediaSources; EDL only on Edited |
+| Dual version (original vs edited) | Done (Phase 2) — Original + `{Title} (Edited)` MediaSources; edits only on Edited |
 | Per-range user overrides | Not implemented |
 | Core overlay | Mute `-af` + edit-graph hooks; CorrMedia registers both providers |
 
@@ -64,8 +66,8 @@ See `distribution/APPLY_GUIDE.md` for the patched-server path.
 
 **Goal:** Align code and docs with mute + skip only, server delivery.
 
-- [x] Remove **Pause** from config UI, README, examples; EDL type `2` ignored as scene marker.
-- [x] Treat EDL type `2` as ignored scene marker, not pause.
+- [x] Remove **Pause** from config UI, README, examples.
+- [x] Sidecar format is `.corr.json`; unknown actions ignored.
 - [x] Document that client Seek/mute loops are transitional and will be removed once server delivery works.
 - [x] Collapse AudioControl HTTP mute bridge into CorrMedia (AudioControl removed from the repo).
 
@@ -80,11 +82,11 @@ See `distribution/APPLY_GUIDE.md` for the patched-server path.
 - [x] Keep / harden Jellyfin core overlay for `ISessionAudioFilterProvider` (+ mute loader / pending seek / HLS+progressive force-transcode).
 - [x] Apply mute filters on **all** relevant encode paths (HLS video + audio-only, progressive), not only progressive.
 - [x] **Force audio transcode** when mute ranges apply (`AllowAudioStreamCopy = false` via loader + `HasSessionAudioFilter*`).
-- [x] Load EDL before the first stream request (`SessionMuteRangeLoader` → in-process `EdlEditStore`).
+- [x] Load corr.json before the first stream request (`SessionMuteRangeLoader` → in-process `EdlEditStore`).
 - [x] Fold mute into CorrMedia (`EdlEditStore` + `SessionAudioFilterProvider`); drop HTTP mute bridge.
 - [x] Remove dead client-mute stubs. AudioControl removed from the repo.
 
-**Exit:** Patched server + CorrMedia; item with mute-only EDL; playback silent in mute ranges on web HLS; logs show FFmpeg `volume=…:eval=frame`.
+**Exit:** Patched server + CorrMedia; item with mute-only corr.json; playback silent in mute ranges on web HLS; logs show FFmpeg `volume=…:eval=frame`.
 
 ---
 
@@ -99,7 +101,7 @@ Implemented via Jellyfin multi-source UX:
 
 EDL mute / mute-then-cut / force-HLS apply **only** when `MediaSourceId` is the Edited source.
 
-- [x] Extra `MediaSource` (`EdlMediaSourceProvider`) when sidecar `.edl` has mute and/or skip.
+- [x] Extra `MediaSource` (`EdlMediaSourceProvider`) when sidecar `.corr.json` has mute and/or skip.
 - [x] Gate loaders, filters, edit graph, and HLS hints on Edited `MediaSourceId`.
 - [x] Config `PreferEdlApplied` (default **true**) so Edited sorts first for clients that take `[0]`.
 - [x] Shortened duration on Edited source for scrubbing.
@@ -113,7 +115,7 @@ EDL mute / mute-then-cut / force-HLS apply **only** when `MediaSourceId` is the 
 
 **Goal:** Skip ranges shorten the **EDL-applied** timeline (content removed), matching “edited version” expectations.
 
-NLE order: **mute on the original timeline, then cut** (omit skip ranges via trim/concat).
+Application order: **mute on the original timeline, then cut** (omit skip ranges via trim/concat). Sidecar times stay on the original source; they are not rewritten after cuts.
 
 - [x] Map skip ranges to FFmpeg mute-then-cut `filter_complex` (`EdlFilterComplexBuilder` + `ISessionMediaEditGraphProvider`).
 - [x] Timeline semantics: muted ranges keep duration; skipped ranges remove duration.
@@ -145,7 +147,7 @@ NLE order: **mute on the original timeline, then cut** (omit skip ranges via tri
 - [ ] Cache / reuse of EDL-applied transcodes for repeated playback.
 - [ ] Upstream Jellyfin PR for extension points (reduce need for a long-lived fork).
 - [ ] Broader client support for dual-source selection if custom clients are required.
-- [ ] Scene-marker handling for EDL type `2` if product wants chapter-like POIs.
+- [ ] Scene-marker / POI `action` in corr.json if product wants chapter-like ranges.
 
 ---
 
@@ -164,10 +166,10 @@ Phase 2 is next so clients can still choose an untouched original.
 
 ## Success criteria (north star)
 
-1. Library item with a sidecar `.edl` exposes (or can start) **Original** and **EDL-applied** playback.
-2. EDL-applied applies **mute** and **skip** in the server encode; no client Seek/Mute/Pause required for those actions.
-3. Original playback is bit-identical in intent to today’s normal Jellyfin playback (no EDL side effects).
-4. Users can later narrow which EDL rules apply without editing the `.edl` file.
+1. Library item with a sidecar `.corr.json` exposes **Original** and **Edited** playback.
+2. Edited applies **mute** and **skip** in the server encode; no client Seek/Mute/Pause required for those actions.
+3. Original playback is bit-identical in intent to today’s normal Jellyfin playback (no sidecar side effects).
+4. Users can later narrow which rules apply without editing the `.corr.json` file.
 5. Pause is not part of the product.
 
 ---
@@ -177,7 +179,7 @@ Phase 2 is next so clients can still choose an untouched original.
 - Exact dual-delivery API/UX (extra `MediaSource` vs playback flag vs other).
 - Whether EDL-applied is always transcoded, or only when mute/skip ranges remain after filters.
 - Whether to keep a thin patched Jellyfin long-term or upstream extension points.
-- Mapping of commercial EDL type `3` vs cut type `0` if we expand beyond current mute/skip codes.
+- Additional corr.json `action` types beyond mute/skip.
 - Whether MediaSegments are published for the original version, the edited version, both, or neither.
 
 Update this file as phases complete or decisions land.

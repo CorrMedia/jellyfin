@@ -1,5 +1,5 @@
 # Generates a 90s test clip with on-screen original-second counter + tone audio.
-# EDL verification:
+# corr.json verification:
 #   - mute 0-10 / 30-35 / 60-65: silence while ORIG Ns still advances
 #   - skip 15-20: after ORIG 14s, next frame should show ORIG 20s (cut omitted)
 # Usage: .\scripts\generate-test-movie.ps1
@@ -31,9 +31,9 @@ docker cp "${Container}:${tmpInContainer}" $OutputPath
 $mediaDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'docker\jellyfin\media'
 New-Item -ItemType Directory -Force -Path $mediaDir | Out-Null
 Copy-Item -Force $OutputPath (Join-Path $mediaDir 'test-movie.mkv')
-$edl = Join-Path (Split-Path $PSScriptRoot -Parent) 'test-movie.edl'
-if (Test-Path $edl) {
-    Copy-Item -Force $edl (Join-Path $mediaDir 'test-movie.edl')
+$corr = Join-Path (Split-Path $PSScriptRoot -Parent) 'test-movie.corr.json'
+if (Test-Path $corr) {
+    Copy-Item -Force $corr (Join-Path $mediaDir 'test-movie.corr.json')
 }
 
 Write-Host "Wrote $OutputPath and staged under docker\jellyfin\media."

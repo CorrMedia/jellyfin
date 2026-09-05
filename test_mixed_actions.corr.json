@@ -1,0 +1,24 @@
+{
+  "$schema": "schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Mixed mute and skip",
+    "runtime": 125
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 0.0,
+      "end": 10.0,
+      "action": "mute",
+      "description": "Mute first 10 seconds"
+    },
+    {
+      "id": "edit_002",
+      "start": 30.0,
+      "end": 60.0,
+      "action": "skip",
+      "description": "Skip 30–60 seconds"
+    }
+  ]
+}

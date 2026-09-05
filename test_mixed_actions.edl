@@ -1,6 +1,0 @@
-# Test EDL file - Mixed mute + skip
-# Mute first 10 seconds, skip 30-60 seconds; type 2 is scene marker (ignored)
-
-0.00 10.00 1
-30.00 60.00 3
-120.00 125.00 2

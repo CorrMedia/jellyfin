@@ -17,7 +17,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services;
 
 /// <summary>
-/// Adds a "{Title} (Edited)" media source when a sidecar EDL exists.
+/// Adds a "{Title} (Edited)" media source when a sidecar <c>.corr.json</c> exists.
 /// </summary>
 public sealed class EdlMediaSourceProvider : IMediaSourceProvider
 {
@@ -43,13 +43,13 @@ public sealed class EdlMediaSourceProvider : IMediaSourceProvider
             return Task.FromResult(Enumerable.Empty<MediaSourceInfo>());
         }
 
-        var edlPath = EdlFile.GetPath(item.Path);
-        if (!File.Exists(edlPath))
+        var corrPath = CorrFile.GetPath(item.Path);
+        if (!File.Exists(corrPath))
         {
             return Task.FromResult(Enumerable.Empty<MediaSourceInfo>());
         }
 
-        var (mutes, skips) = EdlFile.ParseMuteAndSkip(edlPath);
+        var (mutes, skips) = CorrFile.ParseMuteAndSkip(corrPath);
         if (mutes.Count == 0 && skips.Count == 0)
         {
             return Task.FromResult(Enumerable.Empty<MediaSourceInfo>());

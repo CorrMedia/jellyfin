@@ -1,7 +1,15 @@
 {
+  "category": "General",
+  "changelog": "Sidecar .corr.json mute and skip on patched Jellyfin 10.11.11.",
+  "description": "Applies sidecar .corr.json mute and skip during playback on patched Jellyfin (see ROADMAP.md).",
+  "guid": "d477f9fe-bde6-467c-88ba-5336048f955c",
   "name": "CorrMedia",
-  "description": "Applies EDL mute (server-side on patched Jellyfin) and skip during playback. Target: original vs EDL-applied delivery (see ROADMAP.md).",
-  "owner": "Jellyfin Community",
+  "overview": "Mute and skip from .corr.json sidecar",
+  "owner": "CorrMedia",
+  "targetAbi": "10.11.11.0",
+  "timestamp": "2026-09-05T00:00:00Z",
   "version": "1.0.1.0",
-  "targetAbi": "10.10.7.0"
+  "status": "Active",
+  "autoUpdate": false,
+  "assemblies": []
 }

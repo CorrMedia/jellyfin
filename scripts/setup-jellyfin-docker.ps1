@@ -13,23 +13,24 @@ $composeFile = Join-Path $repoRoot 'docker-compose.jellyfin.yml'
 $pluginRoot = Join-Path $repoRoot 'docker\jellyfin\plugins'
 $dockerClientConfig = Join-Path $repoRoot '.docker-client'
 
-$skipProject = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
-$skipOutDir = if (Test-Path (Join-Path $repoRoot 'jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')) { 'net9.0' } else { 'net8.0' }
-$skipDll = Join-Path $repoRoot "Jellyfin.Plugin.CorrMedia\bin\Debug\$skipOutDir\Jellyfin.Plugin.CorrMedia.dll"
-$skipManifest = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json'
-$skipTargetDir = Join-Path $pluginRoot 'Jellyfin.Plugin.CorrMedia'
+$pluginProject = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
+$pluginOutDir = 'net9.0'
+$pluginDll = Join-Path $repoRoot "Jellyfin.Plugin.CorrMedia\bin\Debug\$pluginOutDir\Jellyfin.Plugin.CorrMedia.dll"
+$pluginManifest = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json'
+$pluginTargetDir = Join-Path $pluginRoot 'Jellyfin.Plugin.CorrMedia'
 
 if ($BuildPlugins) {
     Write-Host 'Building CorrMedia plugin...'
-    dotnet build $skipProject
+    dotnet build $pluginProject
     if ($LASTEXITCODE -ne 0) {
         throw 'CorrMedia build failed.'
     }
 }
 
-New-Item -ItemType Directory -Force -Path $skipTargetDir | Out-Null
-Copy-Item -Force $skipDll (Join-Path $skipTargetDir 'Jellyfin.Plugin.CorrMedia.dll')
-Copy-Item -Force $skipManifest (Join-Path $skipTargetDir 'manifest.json')
+New-Item -ItemType Directory -Force -Path $pluginTargetDir | Out-Null
+Copy-Item -Force $pluginDll (Join-Path $pluginTargetDir 'Jellyfin.Plugin.CorrMedia.dll')
+Copy-Item -Force $pluginManifest (Join-Path $pluginTargetDir 'manifest.json')
+Copy-Item -Force $pluginManifest (Join-Path $pluginTargetDir 'meta.json')
 
 Write-Host 'CorrMedia staged into docker/jellyfin/plugins.'
 
