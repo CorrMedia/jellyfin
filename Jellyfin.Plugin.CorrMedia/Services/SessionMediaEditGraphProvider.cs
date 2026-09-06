@@ -11,17 +11,17 @@ namespace Jellyfin.Plugin.CorrMedia.Services;
 /// </summary>
 public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvider
 {
-    private readonly EdlEditStore _edlEditStore;
+    private readonly CorrEditStore _corrEditStore;
     private readonly ILogger<SessionMediaEditGraphProvider> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SessionMediaEditGraphProvider"/> class.
     /// </summary>
-    /// <param name="edlEditStore">EDL store.</param>
+    /// <param name="corrEditStore">Sidecar edit store.</param>
     /// <param name="logger">Logger.</param>
-    public SessionMediaEditGraphProvider(EdlEditStore edlEditStore, ILogger<SessionMediaEditGraphProvider> logger)
+    public SessionMediaEditGraphProvider(CorrEditStore corrEditStore, ILogger<SessionMediaEditGraphProvider> logger)
     {
-        _edlEditStore = edlEditStore ?? throw new ArgumentNullException(nameof(edlEditStore));
+        _corrEditStore = corrEditStore ?? throw new ArgumentNullException(nameof(corrEditStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _logger.LogInformation("SessionMediaEditGraphProvider registered (effects-then-cut)");
     }
@@ -29,14 +29,14 @@ public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvid
     /// <inheritdoc />
     public bool HasEditGraph(string? playSessionId, string? deviceId)
     {
-        var plan = _edlEditStore.GetPlan(playSessionId, deviceId);
+        var plan = _corrEditStore.GetPlan(playSessionId, deviceId);
         return plan?.NeedsEditGraph == true;
     }
 
     /// <inheritdoc />
     public SessionMediaEditGraph? GetEditGraph(string? playSessionId, string? deviceId, SessionMediaEditGraphContext context)
     {
-        var plan = _edlEditStore.GetPlan(playSessionId, deviceId);
+        var plan = _corrEditStore.GetPlan(playSessionId, deviceId);
         if (plan is null || !plan.NeedsEditGraph)
         {
             return null;
@@ -59,19 +59,23 @@ public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvid
             stereoDownmix = "aformat=channel_layouts=stereo";
         }
 
-        var originalDuration = EdlFilterComplexBuilder.ResolveOriginalDuration(plan, context.DurationSeconds);
-        var graph = EdlFilterComplexBuilder.Build(
+        var originalDuration = CorrTimeline.ResolveOriginalDuration(plan, context.DurationSeconds);
+        var graph = CorrFilterComplexBuilder.Build(
             plan,
             originalDuration,
             context.StartTimeSeconds,
             inputLayout,
             inputChannels,
             outputChannels,
-            stereoDownmix);
+            stereoDownmix,
+            context.BurnInGraphicalSubtitleInputIndex ?? 0,
+            context.BurnInGraphicalSubtitleStreamIndex,
+            context.BurnInGraphicalSubtitleFilters,
+            context.BurnInTextSubtitleFilter);
         if (graph is not null)
         {
             _logger.LogInformation(
-                "EDL edit graph PlaySessionId={PlaySessionId} originalDuration={Duration} mediaSourceDuration={SourceDuration} editedStart={Start} layout={Layout} channels={Channels}->{OutChannels} selectiveMute={Selective} complexLength={Len}",
+                "Sidecar edit graph PlaySessionId={PlaySessionId} originalDuration={Duration} mediaSourceDuration={SourceDuration} editedStart={Start} layout={Layout} channels={Channels}->{OutChannels} selectiveMute={Selective} pgsBurnIn={PgsInput}:{PgsStream} textBurnIn={Text} complexLength={Len}",
                 playSessionId ?? "(null)",
                 originalDuration,
                 context.DurationSeconds,
@@ -80,6 +84,9 @@ public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvid
                 inputChannels,
                 outputChannels,
                 plan.HasSelectiveMute,
+                context.BurnInGraphicalSubtitleInputIndex,
+                context.BurnInGraphicalSubtitleStreamIndex,
+                !string.IsNullOrEmpty(context.BurnInTextSubtitleFilter),
                 graph.FilterComplex.Length);
         }
 

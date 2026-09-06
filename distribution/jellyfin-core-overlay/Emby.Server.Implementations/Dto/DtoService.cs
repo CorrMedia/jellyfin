@@ -19,6 +19,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Playlists;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Controller.Trickplay;
@@ -124,6 +125,8 @@ namespace Emby.Server.Implementations.Dto
 
         private readonly ITrickplayManager _trickplayManager;
         private readonly IChapterManager _chapterManager;
+        private readonly IEnumerable<ISessionCorrDeliveryHint> _corrDeliveryHints;
+        private readonly ISessionTrickplayRewriter _trickplayRewriter;
 
         public DtoService(
             ILogger<DtoService> logger,
@@ -136,7 +139,9 @@ namespace Emby.Server.Implementations.Dto
             IMediaSourceManager mediaSourceManager,
             Lazy<ILiveTvManager> livetvManagerFactory,
             ITrickplayManager trickplayManager,
-            IChapterManager chapterManager)
+            IChapterManager chapterManager,
+            IEnumerable<ISessionCorrDeliveryHint> corrDeliveryHints = null,
+            ISessionTrickplayRewriter trickplayRewriter = null)
         {
             _logger = logger;
             _libraryManager = libraryManager;
@@ -149,6 +154,8 @@ namespace Emby.Server.Implementations.Dto
             _livetvManagerFactory = livetvManagerFactory;
             _trickplayManager = trickplayManager;
             _chapterManager = chapterManager;
+            _corrDeliveryHints = corrDeliveryHints ?? Array.Empty<ISessionCorrDeliveryHint>();
+            _trickplayRewriter = trickplayRewriter ?? new NoOpSessionTrickplayRewriter();
         }
 
         private ILiveTvManager LivetvManager => _livetvManagerFactory.Value;
@@ -259,8 +266,7 @@ namespace Emby.Server.Implementations.Dto
             if (item is IHasMediaSources
                 && options.ContainsField(ItemFields.MediaSources))
             {
-                // Include IMediaSourceProvider dynamic sources (e.g. CorrMedia "{Title} (Edited)")
-                // so the web Version picker matches PlaybackInfo — static-only hid dual delivery.
+                // Playback sources include plugin mutation (CorrMedia transcode / (Edited) name).
                 dto.MediaSources = _mediaSourceManager
                     .GetPlaybackMediaSources(item, user, allowMediaProbe: false, enablePathSubstitution: true, CancellationToken.None)
                     .ConfigureAwait(false)
@@ -318,7 +324,39 @@ namespace Emby.Server.Implementations.Dto
                 dto.HasLyrics = audio.GetMediaStreams().Any(s => s.Type == MediaStreamType.Lyric);
             }
 
+            ApplyCorrMediaPresentation(dto, item);
+
             return dto;
+        }
+
+        private void ApplyCorrMediaPresentation(BaseItemDto dto, BaseItem item)
+        {
+            const string editedSuffix = " (Edited)";
+            if (item is not Video || dto.Type == BaseItemKind.Recording)
+            {
+                return;
+            }
+
+            var itemIdN = item.Id.ToString("N", CultureInfo.InvariantCulture);
+            if (!_corrDeliveryHints.Any(h => h.ShouldApplySidecarEdits(itemIdN)))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(dto.Name)
+                && !dto.Name.EndsWith(editedSuffix, StringComparison.Ordinal))
+            {
+                dto.Name += editedSuffix;
+            }
+
+            foreach (var hint in _corrDeliveryHints)
+            {
+                if (hint.TryGetEditedRunTimeTicks(itemIdN, out var ticks))
+                {
+                    dto.RunTimeTicks = ticks;
+                    break;
+                }
+            }
         }
 
         private static void NormalizeMediaSourceContainers(BaseItemDto dto)
@@ -1139,11 +1177,12 @@ namespace Emby.Server.Implementations.Dto
                 if (options.ContainsField(ItemFields.Trickplay))
                 {
                     var trickplay = _trickplayManager.GetTrickplayManifest(item).GetAwaiter().GetResult();
+                    var itemIdN = item.Id.ToString("N", CultureInfo.InvariantCulture);
                     dto.Trickplay = trickplay.ToDictionary(
                         mediaStream => mediaStream.Key,
                         mediaStream => mediaStream.Value.ToDictionary(
                             width => width.Key,
-                            width => new TrickplayInfoDto(width.Value)));
+                            width => _trickplayRewriter.RewriteDto(itemIdN, new TrickplayInfoDto(width.Value))));
                 }
 
                 dto.ExtraType = video.ExtraType;

@@ -15,25 +15,25 @@ namespace Jellyfin.Plugin.CorrMedia.Services;
 /// </summary>
 public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEncoding.ISessionAudioFilterProvider
 {
-    private readonly EdlEditStore _edlEditStore;
+    private readonly CorrEditStore _corrEditStore;
     private readonly ILogger<SessionAudioFilterProvider> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SessionAudioFilterProvider"/> class.
     /// </summary>
-    /// <param name="edlEditStore">EDL store.</param>
+    /// <param name="corrEditStore">Sidecar edit store.</param>
     /// <param name="logger">The logger.</param>
     public SessionAudioFilterProvider(
-        EdlEditStore edlEditStore,
+        CorrEditStore corrEditStore,
         ILogger<SessionAudioFilterProvider> logger)
     {
-        _edlEditStore = edlEditStore ?? throw new ArgumentNullException(nameof(edlEditStore));
+        _corrEditStore = corrEditStore ?? throw new ArgumentNullException(nameof(corrEditStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _logger.LogInformation("SessionAudioFilterProvider registered (audio-only path)");
     }
 
     /// <summary>
-    /// Returns an FFmpeg audio filter for mute/volume/beep-only EDLs.
+    /// Returns an FFmpeg audio filter for mute/volume/beep-only sidecars.
     /// </summary>
     /// <param name="playSessionId">Play session ID.</param>
     /// <param name="deviceId">Device ID.</param>
@@ -41,7 +41,7 @@ public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEn
     /// <returns>Filter string, or null.</returns>
     public string? GetAdditionalAudioFilter(string? playSessionId, string? deviceId, double startTimeSeconds = 0)
     {
-        var plan = _edlEditStore.GetPlan(playSessionId, deviceId);
+        var plan = _corrEditStore.GetPlan(playSessionId, deviceId);
         if (plan is null || plan.MuteRanges.Count == 0)
         {
             return null;
@@ -93,7 +93,7 @@ public sealed class SessionAudioFilterProvider : MediaBrowser.Controller.MediaEn
 
             if (relativeEnd > relativeStart)
             {
-                result.Add(new MuteTimeRange(relativeStart, relativeEnd, r.Channels, r.Kind, r.Gain, r.Frequency));
+                result.Add(new MuteTimeRange(relativeStart, relativeEnd, r.Channels, r.Kind, r.Gain, r.Frequency, r.Id));
             }
         }
 

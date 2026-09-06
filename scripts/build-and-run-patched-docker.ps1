@@ -6,7 +6,7 @@
     0. Copies distribution/jellyfin-core-overlay into jellyfin-source (overlay is the source of truth).
     1. Builds the Docker image jellyfin-patched:local from jellyfin-source (patched server).
     2. Builds CorrMedia (patched, net9.0) and copies it to docker/jellyfin/plugins.
-    2b. Bind-mounts repo-root test-movie.corr.json and test-movie.mkv over /media (see docker-compose.patched.yml).
+    2b. Bind-mounts repo-root test-movie.corr.json, test-movie.mkv, and test-movie.vtt over /media (see docker-compose.patched.yml).
     3. Starts the container with docker-compose.patched.yml.
 .PARAMETER SkipImageBuild
     If set, skip building the Docker image (use existing jellyfin-patched:local).
@@ -77,21 +77,24 @@ if (-not $SkipPlugins) {
 
     Write-Host 'CorrMedia staged to docker\jellyfin\plugins.'
 
-    $legacySkipDir = Join-Path $pluginRoot 'Jellyfin.Plugin.CorrMedia'
-    if (Test-Path $legacySkipDir) {
-        Remove-Item -Recurse -Force $legacySkipDir
-        Write-Host 'Removed leftover CorrMedia plugin folder.'
+    foreach ($legacyName in @('Jellyfin.Plugin.CorrMedia', 'Jellyfin.Plugin.AudioControl')) {
+        $legacyDir = Join-Path $pluginRoot $legacyName
+        if (Test-Path $legacyDir) {
+            Remove-Item -Recurse -Force $legacyDir
+            Write-Host "Removed leftover $legacyName plugin folder."
+        }
     }
 } else {
     Write-Host 'Skipping plugin build and stage.'
 }
 
-# 2b. Test media: compose bind-mounts repo-root test-movie.corr.json and .mkv over /media.
+# 2b. Test media: compose bind-mounts repo-root test-movie files over /media.
 # Copies below keep docker/jellyfin/media in sync for inspection; playback uses the bind mounts.
 $mediaDir = Join-Path $repoRoot 'docker\jellyfin\media'
 New-Item -ItemType Directory -Force -Path $mediaDir | Out-Null
 $rootCorr = Join-Path $repoRoot 'test-movie.corr.json'
 $rootMkv = Join-Path $repoRoot 'test-movie.mkv'
+$rootVtt = Join-Path $repoRoot 'test-movie.vtt'
 if (Test-Path $rootCorr) {
     Copy-Item -Force $rootCorr (Join-Path $mediaDir 'test-movie.corr.json')
     Write-Host 'Copied test-movie.corr.json to docker\jellyfin\media.'
@@ -99,6 +102,10 @@ if (Test-Path $rootCorr) {
 if (Test-Path $rootMkv) {
     Copy-Item -Force $rootMkv (Join-Path $mediaDir 'test-movie.mkv')
     Write-Host 'Copied test-movie.mkv to docker\jellyfin\media.'
+}
+if (Test-Path $rootVtt) {
+    Copy-Item -Force $rootVtt (Join-Path $mediaDir 'test-movie.vtt')
+    Write-Host 'Copied test-movie.vtt to docker\jellyfin\media.'
 }
 
 # 3. Start stack (force-recreate so new image/plugins are used)

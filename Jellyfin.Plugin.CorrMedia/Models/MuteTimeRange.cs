@@ -5,7 +5,7 @@ using System.Linq;
 namespace Jellyfin.Plugin.CorrMedia.Models;
 
 /// <summary>
-/// A time range in seconds for mute / volume / beep (or skip) EDL-driven filters.
+/// A time range in seconds for mute / volume / beep (or skip) sidecar filters.
 /// </summary>
 /// <param name="StartTime">Range start in seconds on the original timeline.</param>
 /// <param name="EndTime">Range end in seconds on the original timeline.</param>
@@ -18,13 +18,15 @@ namespace Jellyfin.Plugin.CorrMedia.Models;
 /// Volume: linear source gain 0–1. Beep: tone amplitude 0–1. Ignored for mute and skip.
 /// </param>
 /// <param name="Frequency">Beep tone frequency in Hz. Ignored for other kinds.</param>
+/// <param name="Id">Sidecar edit id (or a stable synthetic id when omitted).</param>
 public sealed record MuteTimeRange(
     double StartTime,
     double EndTime,
     IReadOnlyList<string>? Channels = null,
     AudioEditKind Kind = AudioEditKind.Mute,
     double Gain = 0,
-    double Frequency = 1000)
+    double Frequency = 1000,
+    string Id = "")
 {
     /// <summary>
     /// Gets a value indicating whether this edit targets specific named channels.

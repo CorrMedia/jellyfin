@@ -30,7 +30,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     /// <inheritdoc />
     public override string Description =>
-        "Applies sidecar .corr.json mute and skip during playback on patched Jellyfin.";
+        "Applies sidecar .corr.json edits during playback on patched Jellyfin. Per-user apply toggle and category filters.";
 
     /// <inheritdoc />
     public override Guid Id => Guid.Parse("d477f9fe-bde6-467c-88ba-5336048f955c");
@@ -48,6 +48,9 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             new PluginPageInfo
             {
                 Name = Name,
+                DisplayName = "CorrMedia",
+                EnableInMainMenu = true,
+                MenuSection = "server",
                 EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
             }
         ];

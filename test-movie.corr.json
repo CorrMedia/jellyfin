@@ -15,7 +15,7 @@
       "start": 0.0,
       "end": 10.0,
       "action": "mute",
-      "categories": ["test"],
+      "categories": ["profanity"],
       "severity": 1,
       "description": "Mute all channels 0–10s; full silence while ORIG counter advances"
     },
@@ -25,7 +25,7 @@
       "end": 14.0,
       "action": "volume",
       "gain": 0.2,
-      "categories": ["test"],
+      "categories": ["profanity"],
       "severity": 1,
       "description": "Duck all channels 10–14s (gain 0.2); tones still audible but quiet"
     },
@@ -34,7 +34,7 @@
       "start": 15.0,
       "end": 20.0,
       "action": "skip",
-      "categories": ["test"],
+      "categories": ["graphic"],
       "severity": 1,
       "description": "Cut 15–20s; after ORIG 14s the next frame is ORIG 20s"
     },
@@ -53,7 +53,7 @@
         "x": 0.65,
         "y": 0.25
       },
-      "categories": ["test"],
+      "categories": ["immodesty"],
       "severity": 1,
       "description": "Black cover box 21–27s, panning left→right (edited playhead ~16–22s after the cut)"
     },
@@ -63,7 +63,7 @@
       "end": 35.0,
       "action": "mute",
       "channels": ["FC"],
-      "categories": ["test"],
+      "categories": ["racial_slurs"],
       "severity": 1,
       "description": "Mute center only 30–35s; 880 Hz drops, fronts/surrounds remain (before stereo downmix)"
     },
@@ -75,7 +75,7 @@
       "scale": 2.0,
       "x": 0.5,
       "y": 0.45,
-      "categories": ["test"],
+      "categories": ["sex"],
       "severity": 1,
       "description": "Crop-and-pad 36–39s around the ORIG counter; black bars, original frame size"
     },
@@ -88,7 +88,7 @@
       "x": 0.3,
       "y": 0.45,
       "x_end": 0.7,
-      "categories": ["test"],
+      "categories": ["sex"],
       "severity": 1,
       "description": "Punch in 40–50s and pan left→right across the ORIG counter (edited playhead ~35–45s after the cut)"
     },
@@ -104,7 +104,7 @@
         "width": 0.3,
         "height": 0.4
       },
-      "categories": ["test"],
+      "categories": ["immodesty"],
       "severity": 1,
       "description": "Pixelate a box over the ORIG counter 51–56s (edited playhead ~46–51s after the cut)"
     },
@@ -113,7 +113,7 @@
       "start": 57.0,
       "end": 59.0,
       "action": "blank",
-      "categories": ["test"],
+      "categories": ["graphic"],
       "severity": 1,
       "description": "Full-frame black 57–59s; audio continues (edited playhead ~52–54s after the cut)"
     },
@@ -123,7 +123,7 @@
       "end": 65.0,
       "action": "mute",
       "channels": ["FL", "FR"],
-      "categories": ["test"],
+      "categories": ["racial_slurs"],
       "severity": 1,
       "description": "Mute fronts 60–65s; 220/330 Hz drop, FC/surrounds remain (before stereo downmix)"
     },
@@ -143,7 +143,7 @@
         "x": 0.65,
         "y": 0.3
       },
-      "categories": ["test"],
+      "categories": ["non_graphic"],
       "priority": 1,
       "description": "Blur a box 70–80s, panning left→right (edited playhead ~65–75s after the cut)"
     },
@@ -154,7 +154,7 @@
       "action": "beep",
       "frequency": 1000,
       "gain": 0.3,
-      "categories": ["test"],
+      "categories": ["profanity"],
       "severity": 1,
       "description": "Replace audio with 1 kHz beep 81–88s; video continues (edited playhead ~76–83s after the cut)"
     }

@@ -1,10 +1,10 @@
 # Jellyfin CorrMedia Plugin
 
-A Jellyfin plugin that applies sidecar **mute**, **volume**, **beep**, **zoom**, **crop**, **blur**, **pixelate**, **cover**, **blank**, and **skip** from `*.corr.json`. The product direction is **two deliveries** of the same item — untouched original vs server-side edited stream — not client Seek/Mute/Pause tricks. See [`ROADMAP.md`](ROADMAP.md).
+A Jellyfin plugin that applies sidecar **mute**, **volume**, **beep**, **zoom**, **crop**, **blur**, **pixelate**, **cover**, **blank**, and **skip** from `*.corr.json`. Edits run on the **normal library item** for every client when the user has them enabled — not a second Version / media source, and not client Seek/Mute/Pause tricks. See [`ROADMAP.md`](ROADMAP.md).
 
 ## Features
 
-- **Dual delivery** — When a sidecar `.corr.json` exists, PlaybackInfo offers **Original** plus **`{sourceName} (Edited)`**; edits apply only to Edited
+- **Sidecar playback** — When a `.corr.json` exists and **Apply sidecar edits** is on, every play of that title (listing, Continue Watching, apps) gets the edited stream. Titles show `{Name} (Edited)`. Turn the toggle off to play the file untouched.
 - **Skip segments** — Server-side cut (omit from encode) on **patched Jellyfin**; no client Seek
 - **Mute / volume / beep** — Server-side FFmpeg audio (`-af` when all-channel audio-only; inside the edit graph when selective channels, video effects, or skips exist). Optional `channels` names apply before any stereo downmix.
 - **Zoom / punch-in** — Timed crop+scale that fills the frame (does not change duration or output size)
@@ -12,12 +12,12 @@ A Jellyfin plugin that applies sidecar **mute**, **volume**, **beep**, **zoom**,
 - **Box blur / pixelate / cover** — Timed full-frame or regional hide (does not change duration)
 - **Blank** — Full-frame black video for a range; audio continues
 - **Mixed actions** — Non-length-altering edits run before length-altering edits (skip/cut) from the same sidecar
-- **Prefer Edited** — Config default puts Edited first for clients that take the first media source
 - **Extensible schema** — Unknown `action` values are ignored so new edit types can be added without breaking playback
+- **Per-user treatments** — Default is apply every sidecar edit as written. Optionally turn categories on or off; mute vs beep vs crop vs skip still comes from the sidecar.
 
 ## How It Works
 
-For each video, the plugin looks for `{stem}.corr.json` next to the file. If it has playback edits, the plugin adds an Edited media source and (when that source is selected) applies them during encode.
+For each video, the plugin looks for `{stem}.corr.json` next to the file. If the user has **Apply sidecar edits** on, those edits run during encode of the normal item. The library name is shown as `{Title} (Edited)`. There is no separate Original/Edited Version picker.
 
 Example: watching `/media/movies/MyMovie.mkv` requires `/media/movies/MyMovie.corr.json`.
 
@@ -144,7 +144,8 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 
 ## Configuration
 
-- **Prefer Edited when a .corr.json sidecar exists** — Default **on**. Sorts `{Title} (Edited)` ahead of Original for naive clients; turn off to prefer Original. Explicit source pickers still work either way.
+- **Apply sidecar edits when a .corr.json file exists** — Default **on**, per user. Every client plays the edited stream; titles show `{Title} (Edited)`. Turn off to play the untouched file. Restart playback after saving.
+- **Apply every treatment in the .corr.json sidecar** — Default **on**. Every sidecar edit runs as written. Turn it off to choose categories. A camera or speaker with no strike means that class plays original; a struck icon means apply the sidecar’s treatment (mute, beep, crop, skip, etc.). These controls do not change how a treatment is done. Categories are a shared taxonomy; sidecar `edits[].categories` map into it.
 
 ## Compatibility
 
@@ -153,15 +154,17 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 
 ## Known Limitations
 
-* **Edited encode requires patched Jellyfin** (core overlay). On stock Jellyfin, the Edited source may appear but filters are not applied.
-* Edited source forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability
-* Edited `RunTimeTicks` is original duration minus skip totals (approximate for scrubbing)
+* **Edited encode requires patched Jellyfin** (core overlay). On stock Jellyfin, filters are not applied.
+* Sidecar playback forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability
+* Edited `RunTimeTicks` is original duration minus merged skip totals (approximate for scrubbing)
+* HLS / external VTT and SRT cues and trickplay tiles are remapped onto the cut timeline; burned-in text/ASS and graphical subs (internal or external) overlay before cuts. Chapters are dropped.
 * Sidecars must sit beside media files (`MyMovie.mkv` → `MyMovie.corr.json`)
-* Per-range toggles are not implemented yet (Phase 4)
+* Invalid or unreadable `.corr.json` is treated as no edits (a warning is logged)
+* Sidecar `edits[].categories` map onto the shared dashboard taxonomy. Language groups drill down to specific words (`word_ass`, `word_damn`, …). Unknown tokens count as Other.
 
 ## Roadmap
 
-See [`ROADMAP.md`](ROADMAP.md): solid server mute → dual delivery → server skip/cut → selective edit compliance.
+See [`ROADMAP.md`](ROADMAP.md): server mute → effects-then-cut → apply-edits on the primary item → per-user category filters.
 
 ## Contributing
 
@@ -169,14 +172,15 @@ PRs welcome. Prefer work aligned with the roadmap (server-side delivery over new
 
 ## Changelog
 
-### v1.1.0 (in progress)
+### v1.1.0.0
 - Sidecar format is `*.corr.json` (EDL files are no longer read)
 - Mute, volume, and beep via `edits[].action`; zoom/crop/blur/pixelate/cover/blank as duration-preserving video effects; unknown actions ignored
 - Pause support removed
-- Phase 1: in-process server mute (`EdlEditStore` + `SessionAudioFilterProvider`)
+- Phase 1: in-process server mute (`CorrEditStore` + `SessionAudioFilterProvider`)
 - Phase 3: mute-then-cut via `ISessionMediaEditGraphProvider`; HLS forced when cuts exist so seeking reuses segments
 - Zoom, crop, boxblur, pixelate, cover, and blank share the same original-timeline video-effect stage (before cuts)
-- Dual delivery (original vs edited): see [`ROADMAP.md`](ROADMAP.md)
+- Dual delivery (original vs edited): replaced by apply-edits on the primary item; titles show `(Edited)`
+- Phase 4: per-user apply toggle and content-category filters (major/minor; no presets)
 
 ### v1.0.0.1
 - Initial release with skip-only functionality

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CA1707;CA1861;CA2007</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="Exists('..\jellyfin-source\MediaBrowser.Controller\MediaBrowser.Controller.csproj')">
+    <DefineConstants>$(DefineConstants);PATCHED_CORE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\test-movie.corr.json" Link="Fixtures\test-movie.corr.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\examples\example_mixed.corr.json" Link="Fixtures\example_mixed.corr.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\examples\example_extra_actions.corr.json" Link="Fixtures\example_extra_actions.corr.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\examples\example_mute_channels_51.corr.json" Link="Fixtures\example_mute_channels_51.corr.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

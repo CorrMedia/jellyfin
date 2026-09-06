@@ -3,7 +3,7 @@
 namespace MediaBrowser.Controller.MediaEncoding;
 
 /// <summary>
-/// Provides a mute-then-cut FFmpeg filter_complex graph for EDL-applied delivery.
+/// Provides a mute-then-cut FFmpeg filter_complex graph for sidecar-edited delivery.
 /// </summary>
 public interface ISessionMediaEditGraphProvider
 {

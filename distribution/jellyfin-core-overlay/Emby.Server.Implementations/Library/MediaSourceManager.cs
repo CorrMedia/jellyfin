@@ -56,7 +56,7 @@ namespace Emby.Server.Implementations.Library
         private readonly IDirectoryService _directoryService;
         private readonly IMediaStreamRepository _mediaStreamRepository;
         private readonly IMediaAttachmentRepository _mediaAttachmentRepository;
-        private readonly IEnumerable<ISessionEdlDeliveryHint> _edlDeliveryHints;
+        private readonly IEnumerable<ISessionCorrDeliveryHint> _corrDeliveryHints;
         private readonly ConcurrentDictionary<string, ILiveStream> _openStreams = new ConcurrentDictionary<string, ILiveStream>(StringComparer.OrdinalIgnoreCase);
         private readonly AsyncNonKeyedLocker _liveStreamLocker = new(1);
         private readonly JsonSerializerOptions _jsonOptions = JsonDefaults.Options;
@@ -77,7 +77,7 @@ namespace Emby.Server.Implementations.Library
             IDirectoryService directoryService,
             IMediaStreamRepository mediaStreamRepository,
             IMediaAttachmentRepository mediaAttachmentRepository,
-            IEnumerable<ISessionEdlDeliveryHint> edlDeliveryHints = null)
+            IEnumerable<ISessionCorrDeliveryHint> corrDeliveryHints = null)
         {
             _appHost = appHost;
             _itemRepo = itemRepo;
@@ -92,7 +92,7 @@ namespace Emby.Server.Implementations.Library
             _directoryService = directoryService;
             _mediaStreamRepository = mediaStreamRepository;
             _mediaAttachmentRepository = mediaAttachmentRepository;
-            _edlDeliveryHints = edlDeliveryHints ?? Array.Empty<ISessionEdlDeliveryHint>();
+            _corrDeliveryHints = corrDeliveryHints ?? Array.Empty<ISessionCorrDeliveryHint>();
         }
 
         public void AddParts(IEnumerable<IMediaSourceProvider> providers)
@@ -199,11 +199,8 @@ namespace Emby.Server.Implementations.Library
 
             foreach (var source in dynamicMediaSources)
             {
-                var isEdlApplied = _edlDeliveryHints.Any(h =>
-                    h.IsEdlAppliedMediaSource(source.Id, item.Id.ToString("N", CultureInfo.InvariantCulture)));
-
                 // Validate that this is actually possible
-                if (source.SupportsDirectStream && !isEdlApplied)
+                if (source.SupportsDirectStream)
                 {
                     source.SupportsDirectStream = SupportsDirectStream(source.Path, source.Protocol);
                 }
@@ -219,32 +216,16 @@ namespace Emby.Server.Implementations.Library
                     else if (item.MediaType == MediaType.Video)
                     {
                         source.SupportsTranscoding = user.HasPermission(PermissionKind.EnableVideoPlaybackTranscoding);
-                        // Edited EDL sources must never DirectStream (would bypass mute/cut).
-                        if (!isEdlApplied)
-                        {
-                            source.SupportsDirectStream = user.HasPermission(PermissionKind.EnablePlaybackRemuxing);
-                        }
-                    }
-                }
-
-                if (isEdlApplied)
-                {
-                    source.SupportsDirectPlay = false;
-                    source.SupportsDirectStream = false;
-                    source.SupportsTranscoding = true;
-
-                    // Same label Jellyfin uses for the primary static source, plus (Edited).
-                    var primaryName = mediaSources.Count > 0 ? mediaSources[0].Name : null;
-                    if (!string.IsNullOrWhiteSpace(primaryName))
-                    {
-                        source.Name = primaryName + " (Edited)";
+                        source.SupportsDirectStream = user.HasPermission(PermissionKind.EnablePlaybackRemuxing);
                     }
                 }
 
                 list.Add(source);
             }
 
-            return PreferEdlMediaSources(SortMediaSources(list).ToList()).ToArray();
+            ApplyCorrMediaEdits(list, item);
+
+            return SortMediaSources(list).ToArray();
         }
 
         /// <inheritdoc />>
@@ -521,19 +502,44 @@ namespace Emby.Server.Implementations.Library
         }
 
         /// <summary>
-        /// When PreferEdlApplied is enabled, sort Edited (*_edl) sources ahead of Original
-        /// so item detail Version pickers and naive clients that take [0] get Edited.
+        /// When sidecar edits apply for this item, force transcode on every source, suffix names, and shorten runtime.
         /// </summary>
-        private IEnumerable<MediaSourceInfo> PreferEdlMediaSources(IList<MediaSourceInfo> sources)
+        private void ApplyCorrMediaEdits(IList<MediaSourceInfo> sources, BaseItem item)
         {
-            if (!_edlDeliveryHints.Any(h => h.PreferEdlAppliedMediaSources()))
+            const string editedSuffix = " (Edited)";
+            var itemIdN = item.Id.ToString("N", CultureInfo.InvariantCulture);
+            if (!_corrDeliveryHints.Any(h => h.ShouldApplySidecarEdits(itemIdN)))
             {
-                return sources;
+                return;
             }
 
-            return sources
-                .OrderBy(i => _edlDeliveryHints.Any(h => h.IsEdlAppliedMediaSource(i.Id)) ? 0 : 1)
-                .ThenBy(sources.IndexOf);
+            long? editedTicks = null;
+            foreach (var hint in _corrDeliveryHints)
+            {
+                if (hint.TryGetEditedRunTimeTicks(itemIdN, out var ticks))
+                {
+                    editedTicks = ticks;
+                    break;
+                }
+            }
+
+            foreach (var source in sources)
+            {
+                source.SupportsDirectPlay = false;
+                source.SupportsDirectStream = false;
+                source.SupportsTranscoding = true;
+
+                if (!string.IsNullOrWhiteSpace(source.Name)
+                    && !source.Name.EndsWith(editedSuffix, StringComparison.Ordinal))
+                {
+                    source.Name += editedSuffix;
+                }
+
+                if (editedTicks.HasValue)
+                {
+                    source.RunTimeTicks = editedTicks;
+                }
+            }
         }
 
         public async Task<Tuple<LiveStreamResponse, IDirectStreamProvider>> OpenLiveStreamInternal(LiveStreamRequest request, CancellationToken cancellationToken)

@@ -14,27 +14,35 @@ namespace Jellyfin.Plugin.CorrMedia.Services;
 /// Builds FFmpeg graphs: duration-preserving effects (audio + video) on the original
 /// timeline, then length-altering cuts. Output frame size never changes.
 /// </summary>
-internal static class EdlFilterComplexBuilder
+internal static class CorrFilterComplexBuilder
 {
     /// <summary>
-    /// Builds a session edit graph, or null if neither cuts nor video effects are present.
+    /// Builds a session edit graph, or null when <see cref="CorrEditPlan.NeedsEditGraph"/> is false.
     /// </summary>
-    /// <param name="plan">EDL plan.</param>
+    /// <param name="plan">Sidecar edit plan.</param>
     /// <param name="durationSeconds">Uncut source duration in seconds.</param>
     /// <param name="editedStartSeconds">Start offset on the edited (post-cut) timeline, e.g. client seek.</param>
     /// <param name="inputChannelLayout">Source audio layout (e.g. 5.1).</param>
     /// <param name="inputChannelCount">Source audio channel count.</param>
     /// <param name="outputAudioChannels">Requested output channel count.</param>
     /// <param name="stereoDownmixFilter">Optional pan/aformat filter when downmixing to stereo after mute.</param>
+    /// <param name="burnInGraphicalSubtitleInputIndex">FFmpeg input file index (0 = main, 1 = external graphical).</param>
+    /// <param name="burnInGraphicalSubtitleStreamIndex">Stream index within that input of a PGS/DVD stream to overlay before cuts.</param>
+    /// <param name="burnInGraphicalSubtitleFilters">Scale/format filters for that subtitle stream.</param>
+    /// <param name="burnInTextSubtitleFilter">FFmpeg <c>subtitles=</c> filter for text/ASS burn-in before cuts.</param>
     /// <returns>Graph or null.</returns>
     public static SessionMediaEditGraph? Build(
-        EdlEditPlan plan,
+        CorrEditPlan plan,
         double durationSeconds,
         double editedStartSeconds = 0,
         string? inputChannelLayout = null,
         int inputChannelCount = 0,
         int outputAudioChannels = 0,
-        string? stereoDownmixFilter = null)
+        string? stereoDownmixFilter = null,
+        int burnInGraphicalSubtitleInputIndex = 0,
+        int? burnInGraphicalSubtitleStreamIndex = null,
+        string? burnInGraphicalSubtitleFilters = null,
+        string? burnInTextSubtitleFilter = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         if (!plan.NeedsEditGraph)
@@ -51,21 +59,21 @@ internal static class EdlFilterComplexBuilder
         IReadOnlyList<(double Start, double End)> keep;
         if (plan.HasCuts)
         {
-            var fullKeep = BuildKeepRanges(plan.SkipRanges, durationSeconds);
+            var fullKeep = CorrTimeline.BuildKeepRanges(plan.SkipRanges, durationSeconds);
             keep = editedStartSeconds > 0.001
-                ? TruncateKeepRangesForEditedStart(fullKeep, editedStartSeconds)
+                ? CorrTimeline.TruncateKeepRangesForEditedStart(fullKeep, editedStartSeconds)
                 : fullKeep;
 
             if (keep.Count == 0)
             {
                 // Seek at/past the edited duration — keep a tiny tail so HLS does not
                 // fall back to the uncut source (which breaks the last playlist segments).
-                keep = TailKeepRange(fullKeep);
+                keep = CorrTimeline.TailKeepRange(fullKeep);
             }
         }
         else if (editedStartSeconds > 0.001 && durationSeconds > 0)
         {
-            keep = TruncateKeepRangesForEditedStart([(0, durationSeconds)], editedStartSeconds);
+            keep = CorrTimeline.TruncateKeepRangesForEditedStart([(0, durationSeconds)], editedStartSeconds);
         }
         else
         {
@@ -81,6 +89,13 @@ internal static class EdlFilterComplexBuilder
 
         // 1) Duration-preserving effects on the original timeline (before cuts).
         var videoPad = AppendVideoEffects(sb, plan.VideoEffects);
+        videoPad = AppendGraphicalSubtitleBurnIn(
+            sb,
+            videoPad,
+            burnInGraphicalSubtitleStreamIndex,
+            burnInGraphicalSubtitleFilters,
+            burnInGraphicalSubtitleInputIndex);
+        videoPad = AppendTextSubtitleBurnIn(sb, videoPad, burnInTextSubtitleFilter);
         var audioPad = AppendAudioEdits(
             sb,
             plan.MuteRanges,
@@ -274,6 +289,102 @@ internal static class EdlFilterComplexBuilder
     }
 
     /// <summary>
+    /// Overlays a graphical subtitle (PGS/DVD, internal or external) onto the original-timeline
+    /// video pad. Must run after sidecar video effects and before keep-range trims.
+    /// </summary>
+    /// <param name="sb">Filter graph being built.</param>
+    /// <param name="videoPad">Current video pad name without brackets.</param>
+    /// <param name="streamIndex">Stream index within the input, or null to skip.</param>
+    /// <param name="filters">Scale/format chain for the subtitle stream.</param>
+    /// <param name="inputIndex">FFmpeg input file index (0 = main, 1 = external graphical).</param>
+    /// <returns>Video pad after overlay, or <paramref name="videoPad"/> when skipped.</returns>
+    internal static string AppendGraphicalSubtitleBurnIn(
+        StringBuilder sb,
+        string videoPad,
+        int? streamIndex,
+        string? filters,
+        int inputIndex = 0)
+    {
+        ArgumentNullException.ThrowIfNull(sb);
+        if (string.IsNullOrEmpty(videoPad) || !streamIndex.HasValue || streamIndex.Value < 0)
+        {
+            return videoPad;
+        }
+
+        if (inputIndex is not 0 and not 1)
+        {
+            inputIndex = 0;
+        }
+
+        var subFilters = SanitizeSubtitleFilters(filters);
+        sb.Append(CultureInfo.InvariantCulture, $"[{inputIndex}:{streamIndex.Value}]{subFilters}[psub];");
+        sb.Append(CultureInfo.InvariantCulture, $"[{videoPad}][psub]overlay=eof_action=pass:repeatlast=0[vburn];");
+        return "vburn";
+    }
+
+    /// <summary>
+    /// Burns a text/ASS subtitle file onto the original-timeline video pad via
+    /// <c>subtitles=</c>. Must run after sidecar video effects (and any graphical overlay)
+    /// and before keep-range trims.
+    /// </summary>
+    /// <param name="sb">Filter graph being built.</param>
+    /// <param name="videoPad">Current video pad name without brackets.</param>
+    /// <param name="filter">Complete <c>subtitles=...</c> filter, or null to skip.</param>
+    /// <returns>Video pad after burn-in, or <paramref name="videoPad"/> when skipped.</returns>
+    internal static string AppendTextSubtitleBurnIn(StringBuilder sb, string videoPad, string? filter)
+    {
+        ArgumentNullException.ThrowIfNull(sb);
+        var sanitized = SanitizeTextSubtitleFilter(filter);
+        if (string.IsNullOrEmpty(videoPad) || sanitized is null)
+        {
+            return videoPad;
+        }
+
+        var outPad = UniqueBurnInPad(videoPad);
+        sb.Append(CultureInfo.InvariantCulture, $"[{videoPad}]{sanitized}[{outPad}];");
+        return outPad;
+    }
+
+    private static string UniqueBurnInPad(string videoPad)
+        => string.Equals(videoPad, "vburn", StringComparison.Ordinal) ? "vtext" : "vburn";
+
+    private static string SanitizeSubtitleFilters(string? filters)
+    {
+        if (string.IsNullOrWhiteSpace(filters)
+            || filters.Contains('[', StringComparison.Ordinal)
+            || filters.Contains(']', StringComparison.Ordinal)
+            || filters.Contains(';', StringComparison.Ordinal)
+            || filters.Contains('"', StringComparison.Ordinal)
+            || filters.Contains('\'', StringComparison.Ordinal))
+        {
+            return "format=yuva420p";
+        }
+
+        return filters.Trim();
+    }
+
+    private static string? SanitizeTextSubtitleFilter(string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return null;
+        }
+
+        var trimmed = filter.Trim();
+        if (!trimmed.StartsWith("subtitles=", StringComparison.Ordinal)
+            || trimmed.Contains('[', StringComparison.Ordinal)
+            || trimmed.Contains(']', StringComparison.Ordinal)
+            || trimmed.Contains(';', StringComparison.Ordinal)
+            || trimmed.Contains('\n', StringComparison.Ordinal)
+            || trimmed.Contains('\r', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return trimmed;
+    }
+
+    /// <summary>
     /// Appends duration-preserving video overlays in sidecar order. Output size never changes
     /// (zoom scales to fill; crop pads; cover/blur/pixelate overlay a region or the full frame).
     /// </summary>
@@ -282,11 +393,15 @@ internal static class EdlFilterComplexBuilder
     /// <returns>The output video pad name (without brackets).</returns>
     internal static string AppendVideoEffects(StringBuilder sb, IReadOnlyList<VideoEffect> effects)
     {
-        var current = "0:v";
+        // EncodingHelper maps -map "[label]". A bare "0:v" is an input specifier,
+        // not a filter pad, so audio-only graphs must still emit a labeled video pad.
         if (effects is null || effects.Count == 0)
         {
-            return current;
+            sb.Append("[0:v]null[vout];");
+            return "vout";
         }
+
+        var current = "0:v";
 
         for (var i = 0; i < effects.Count; i++)
         {
@@ -531,151 +646,6 @@ internal static class EdlFilterComplexBuilder
 
     private static string F(double value)
         => value.ToString(CultureInfo.InvariantCulture);
-
-    /// <summary>
-    /// Resolves uncut source duration. The HLS media source reports the shortened
-    /// (post-cut) runtime, which must not be used as trim EOF.
-    /// </summary>
-    /// <param name="plan">EDL plan.</param>
-    /// <param name="mediaSourceDurationSeconds">Duration from the encoding job (edited when cuts exist).</param>
-    /// <returns>Original-timeline duration in seconds.</returns>
-    internal static double ResolveOriginalDuration(EdlEditPlan plan, double mediaSourceDurationSeconds)
-    {
-        ArgumentNullException.ThrowIfNull(plan);
-        if (plan.OriginalDurationSeconds > 0.001)
-        {
-            return plan.OriginalDurationSeconds;
-        }
-
-        if (!plan.HasCuts || mediaSourceDurationSeconds <= 0)
-        {
-            return mediaSourceDurationSeconds;
-        }
-
-        var skipSeconds = 0.0;
-        foreach (var skip in MergeRanges(plan.SkipRanges))
-        {
-            skipSeconds += skip.EndTime - skip.StartTime;
-        }
-
-        return mediaSourceDurationSeconds + skipSeconds;
-    }
-
-    /// <summary>
-    /// Computes keep intervals as the complement of skip ranges on [0, duration).
-    /// </summary>
-    /// <param name="skipRanges">Skip ranges to omit.</param>
-    /// <param name="durationSeconds">Media duration in seconds.</param>
-    /// <returns>Keep intervals on the original timeline.</returns>
-    internal static IReadOnlyList<(double Start, double End)> BuildKeepRanges(
-        IReadOnlyList<MuteTimeRange> skipRanges,
-        double durationSeconds)
-    {
-        var merged = MergeRanges(skipRanges);
-        var keep = new List<(double, double)>();
-        var cursor = 0.0;
-        foreach (var skip in merged)
-        {
-            if (skip.StartTime > cursor)
-            {
-                keep.Add((cursor, Math.Min(skip.StartTime, durationSeconds)));
-            }
-
-            cursor = Math.Max(cursor, skip.EndTime);
-            if (cursor >= durationSeconds)
-            {
-                break;
-            }
-        }
-
-        if (cursor < durationSeconds)
-        {
-            keep.Add((cursor, durationSeconds));
-        }
-
-        return keep.Where(k => k.Item2 > k.Item1 + 0.001).ToList();
-    }
-
-    /// <summary>
-    /// Drops keep media that falls before <paramref name="editedStartSeconds"/> on the post-cut timeline.
-    /// </summary>
-    /// <param name="keep">Keep intervals on the original timeline.</param>
-    /// <param name="editedStartSeconds">Offset on the edited timeline to start from.</param>
-    /// <returns>Keep intervals starting at the seek point.</returns>
-    internal static IReadOnlyList<(double Start, double End)> TruncateKeepRangesForEditedStart(
-        IReadOnlyList<(double Start, double End)> keep,
-        double editedStartSeconds)
-    {
-        if (editedStartSeconds <= 0 || keep.Count == 0)
-        {
-            return keep;
-        }
-
-        var result = new List<(double, double)>();
-        var editedCursor = 0.0;
-        var started = false;
-        foreach (var (start, end) in keep)
-        {
-            var len = end - start;
-            if (len <= 0)
-            {
-                continue;
-            }
-
-            if (!started)
-            {
-                if (editedCursor + len <= editedStartSeconds + 0.001)
-                {
-                    editedCursor += len;
-                    continue;
-                }
-
-                var into = Math.Max(0, editedStartSeconds - editedCursor);
-                result.Add((start + into, end));
-                started = true;
-            }
-            else
-            {
-                result.Add((start, end));
-            }
-
-            editedCursor += len;
-        }
-
-        return result.Where(k => k.Item2 > k.Item1 + 0.001).ToList();
-    }
-
-    private static IReadOnlyList<(double Start, double End)> TailKeepRange(
-        IReadOnlyList<(double Start, double End)> keep)
-    {
-        if (keep.Count == 0)
-        {
-            return keep;
-        }
-
-        var last = keep[^1];
-        var start = Math.Max(last.Start, last.End - 0.04);
-        return last.End > start + 0.001 ? [(start, last.End)] : keep;
-    }
-
-    private static List<MuteTimeRange> MergeRanges(IReadOnlyList<MuteTimeRange> ranges)
-    {
-        var sorted = ranges.Where(r => r.EndTime > r.StartTime).OrderBy(r => r.StartTime).ToList();
-        var merged = new List<MuteTimeRange>();
-        foreach (var r in sorted)
-        {
-            if (merged.Count == 0 || r.StartTime > merged[^1].EndTime)
-            {
-                merged.Add(r);
-            }
-            else if (r.EndTime > merged[^1].EndTime)
-            {
-                merged[^1] = new MuteTimeRange(merged[^1].StartTime, r.EndTime);
-            }
-        }
-
-        return merged;
-    }
 }
 
 #endif

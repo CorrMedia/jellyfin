@@ -518,7 +518,9 @@ namespace Emby.Server.Implementations
             serviceCollection.AddSingleton<IMediaEncoder, MediaBrowser.MediaEncoding.Encoder.MediaEncoder>();
             serviceCollection.AddSingleton<ISessionAudioFilterProvider, NoOpSessionAudioFilterProvider>();
             serviceCollection.AddSingleton<ISessionMediaEditGraphProvider, NoOpSessionMediaEditGraphProvider>();
-            serviceCollection.AddSingleton<ISessionEdlDeliveryHint, NoOpSessionEdlDeliveryHint>();
+            serviceCollection.AddSingleton<ISessionCorrDeliveryHint, NoOpSessionCorrDeliveryHint>();
+            serviceCollection.AddSingleton<ISessionSubtitleCueRewriter, NoOpSessionSubtitleCueRewriter>();
+            serviceCollection.AddSingleton<ISessionTrickplayRewriter, NoOpSessionTrickplayRewriter>();
             serviceCollection.AddSingleton<EncodingHelper>();
             serviceCollection.AddSingleton<IPathManager, PathManager>();
             serviceCollection.AddSingleton<IExternalDataManager, ExternalDataManager>();

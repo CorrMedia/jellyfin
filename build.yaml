@@ -2,16 +2,17 @@
 name: "CorrMedia"
 guid: "d477f9fe-bde6-467c-88ba-5336048f955c"
 imageUrl: "https://raw.githubusercontent.com/CorrMedia/jellyfin/main/images/jellyfin-plugin-corrmedia.png"
-version: "1.0.0.1"
+version: "1.1.0.0"
 targetAbi: "10.11.11.0"
 framework: "net9.0"
-overview: "Sidecar .corr.json mute and skip (server-side on patched Jellyfin)"
+overview: "Sidecar .corr.json edits on patched Jellyfin"
 description: >
-  Applies sidecar .corr.json mute and skip/cut on a patched Jellyfin server.
-  Mute and cut are baked into the transcode (NLE order). Unknown actions are ignored.
+  Applies sidecar .corr.json edits during playback on patched Jellyfin.
+  Per-user apply toggle and category filters.
 category: "General"
 owner: "CorrMedia",
 artifacts:
 - "Jellyfin.Plugin.CorrMedia.dll"
 changelog: >
-  Server-side mute-then-cut; client Seek path removed.
+  Primary-item sidecar edits: mute/volume/beep, zoom/crop/blur/pixelate/cover/blank,
+  skip/cut, per-user category filters. Requires patched Jellyfin 10.11.11.

@@ -76,7 +76,7 @@ public class DynamicHlsController : BaseJellyfinApiController
     /// <param name="dynamicHlsHelper">Instance of <see cref="DynamicHlsHelper"/>.</param>
     /// <param name="encodingHelper">Instance of <see cref="EncodingHelper"/>.</param>
     /// <param name="dynamicHlsPlaylistGenerator">Instance of <see cref="IDynamicHlsPlaylistGenerator"/>.</param>
-    /// <param name="muteRangeLoaders">Optional loaders to ensure EDL mute ranges are loaded before the first stream request.</param>
+    /// <param name="muteRangeLoaders">Optional loaders to ensure sidecar mute ranges are loaded before the first stream request.</param>
     public DynamicHlsController(
         ILibraryManager libraryManager,
         IUserManager userManager,
@@ -284,7 +284,7 @@ public class DynamicHlsController : BaseJellyfinApiController
 
         var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
-        await ApplyEdlTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), cancellationToken).ConfigureAwait(false);
+        await ApplySidecarTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), cancellationToken).ConfigureAwait(false);
 
         // CTS lifecycle is managed internally.
         // Due to CTS.Token calling ThrowIfDisposed (https://github.com/dotnet/runtime/issues/29970) we have to "cache" the token
@@ -528,7 +528,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             AlwaysBurnInSubtitleWhenTranscoding = alwaysBurnInSubtitleWhenTranscoding
         };
 
-        await ApplyEdlTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
+        await ApplySidecarTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
 
         return await _dynamicHlsHelper.GetMasterHlsPlaylist(TranscodingJobType, streamingRequest, enableAdaptiveBitrateStreaming).ConfigureAwait(false);
     }
@@ -700,7 +700,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             AlwaysBurnInSubtitleWhenTranscoding = false
         };
 
-        await ApplyEdlTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
+        await ApplySidecarTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
 
         return await _dynamicHlsHelper.GetMasterHlsPlaylist(TranscodingJobType, streamingRequest, enableAdaptiveBitrateStreaming).ConfigureAwait(false);
     }
@@ -875,7 +875,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             AlwaysBurnInSubtitleWhenTranscoding = alwaysBurnInSubtitleWhenTranscoding
         };
 
-        await ApplyEdlTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
+        await ApplySidecarTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
 
         return await GetVariantPlaylistInternal(streamingRequest, cancellationTokenSource)
             .ConfigureAwait(false);
@@ -1045,7 +1045,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             AlwaysBurnInSubtitleWhenTranscoding = false
         };
 
-        await ApplyEdlTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
+        await ApplySidecarTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
 
         return await GetVariantPlaylistInternal(streamingRequest, cancellationTokenSource)
             .ConfigureAwait(false);
@@ -1234,7 +1234,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             AlwaysBurnInSubtitleWhenTranscoding = alwaysBurnInSubtitleWhenTranscoding
         };
 
-        await ApplyEdlTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
+        await ApplySidecarTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
 
         return await GetDynamicSegment(streamingRequest, segmentId)
             .ConfigureAwait(false);
@@ -1417,7 +1417,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             AlwaysBurnInSubtitleWhenTranscoding = false
         };
 
-        await ApplyEdlTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
+        await ApplySidecarTranscodeFlagsAsync(streamingRequest, itemId.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
 
         return await GetDynamicSegment(streamingRequest, segmentId)
             .ConfigureAwait(false);
@@ -1651,6 +1651,8 @@ public class DynamicHlsController : BaseJellyfinApiController
         var segmentFormat = string.Empty;
         var segmentContainer = outputExtension.TrimStart('.');
         var inputModifier = _encodingHelper.GetInputModifier(state, _encodingOptions, segmentContainer);
+        // Capture -i args while seek is still 0 so external graphical/audio inputs stay on the original timeline.
+        var inputArgument = _encodingHelper.GetInputArgument(state, _encodingOptions, segmentContainer);
         if (savedEditSeek.HasValue)
         {
             state.BaseRequest.StartTimeTicks = savedEditSeek;
@@ -1717,7 +1719,7 @@ public class DynamicHlsController : BaseJellyfinApiController
             CultureInfo.InvariantCulture,
             "{0} {1} {2}-map_metadata -1 -map_chapters -1 -threads {3} {4} {5} {6} {7} -max_muxing_queue_size {8} -f hls -max_delay 5000000 -hls_time {9} -hls_segment_type {10} -start_number {11}{12} -hls_segment_filename \"{13}\" {14} -y \"{15}\"",
             inputModifier,
-            _encodingHelper.GetInputArgument(state, _encodingOptions, segmentContainer),
+            inputArgument,
             editGraphPrefix,
             threads,
             mapArgs,
@@ -2040,9 +2042,9 @@ public class DynamicHlsController : BaseJellyfinApiController
     }
 
     /// <summary>
-    /// Ensures EDL ranges are loaded, then forces audio/video copy off when mute and/or cut graph apply.
+    /// Ensures sidecar ranges are loaded, then forces audio/video copy off when mute and/or cut graph apply.
     /// </summary>
-    private async Task ApplyEdlTranscodeFlagsAsync(StreamingRequestDto streamingRequest, string? itemId, CancellationToken cancellationToken)
+    private async Task ApplySidecarTranscodeFlagsAsync(StreamingRequestDto streamingRequest, string? itemId, CancellationToken cancellationToken)
     {
         foreach (var loader in _muteRangeLoaders ?? Array.Empty<MediaBrowser.Controller.MediaEncoding.ISessionMuteRangeLoader>())
         {
@@ -2071,7 +2073,7 @@ public class DynamicHlsController : BaseJellyfinApiController
     }
 
     /// <summary>
-    /// Ensures EDL mute ranges are loaded for the session, then returns true when the session has server-side mute ranges; caller should set AllowAudioStreamCopy = false so the mute filter is applied.
+    /// Ensures sidecar mute ranges are loaded for the session, then returns true when the session has server-side mute ranges; caller should set AllowAudioStreamCopy = false so the mute filter is applied.
     /// </summary>
     private async Task<bool> SessionHasMuteRangesAsync(string? playSessionId, string? deviceId, string? itemId, string? mediaSourceId, CancellationToken cancellationToken)
     {

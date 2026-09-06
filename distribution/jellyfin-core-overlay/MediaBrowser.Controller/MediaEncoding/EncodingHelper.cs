@@ -7695,6 +7695,8 @@ namespace MediaBrowser.Controller.MediaEncoding
                 }
 
                 inputModifier = GetInputModifier(state, encodingOptions, null);
+                // Second -i (external graphical/audio) must also start at original t=0.
+                var inputArgument = GetInputArgument(state, encodingOptions, null);
                 if (state.BaseRequest is not null)
                 {
                     state.BaseRequest.StartTimeTicks = savedStart;
@@ -7705,6 +7707,7 @@ namespace MediaBrowser.Controller.MediaEncoding
                     encodingOptions,
                     defaultPreset,
                     inputModifier,
+                    inputArgument,
                     editGraph,
                     format,
                     outputPath);
@@ -7728,13 +7731,14 @@ namespace MediaBrowser.Controller.MediaEncoding
         }
 
         /// <summary>
-        /// Progressive command line when a session edit graph (EDL mute-then-cut) is active.
+        /// Progressive command line when a session edit graph (sidecar mute-then-cut) is active.
         /// </summary>
         private string GetProgressiveVideoFullCommandLineWithEditGraph(
             EncodingJobInfo state,
             EncodingOptions encodingOptions,
             EncoderPreset defaultPreset,
             string inputModifier,
+            string inputArgument,
             SessionMediaEditGraph editGraph,
             string format,
             string outputPath)
@@ -7779,7 +7783,7 @@ namespace MediaBrowser.Controller.MediaEncoding
                 CultureInfo.InvariantCulture,
                 "{0} {1} -filter_complex \"{2}\" {3} -map_metadata -1 -map_chapters -1 -threads {4} {5} {6}{7}{8} -y \"{9}\"",
                 inputModifier,
-                GetInputArgument(state, encodingOptions, null),
+                inputArgument,
                 editGraph.FilterComplex,
                 mapArgs,
                 threads,
@@ -7795,7 +7799,7 @@ namespace MediaBrowser.Controller.MediaEncoding
         /// </summary>
         /// <param name="playSessionId">Play session id from the stream request.</param>
         /// <param name="deviceId">Device id from the stream request.</param>
-        /// <returns>True when an EDL cut graph should be applied.</returns>
+        /// <returns>True when a sidecar cut graph should be applied.</returns>
         public bool HasSessionEditGraphForRequest(string playSessionId, string deviceId)
         {
             foreach (var provider in _sessionMediaEditGraphProviders)
@@ -7865,6 +7869,13 @@ namespace MediaBrowser.Controller.MediaEncoding
                 }
             }
 
+            TryFillSubtitleBurnIn(
+                state,
+                out var burnInSubInput,
+                out var burnInSubIndex,
+                out var burnInSubFilters,
+                out var burnInTextFilter);
+
             var context = new SessionMediaEditGraphContext
             {
                 DurationSeconds = duration,
@@ -7872,7 +7883,11 @@ namespace MediaBrowser.Controller.MediaEncoding
                 InputChannelLayout = inputLayout,
                 InputChannelCount = inputChannels,
                 OutputAudioChannels = state.OutputAudioChannels ?? 0,
-                StereoDownmixFilter = stereoDownmix
+                StereoDownmixFilter = stereoDownmix,
+                BurnInGraphicalSubtitleInputIndex = burnInSubInput,
+                BurnInGraphicalSubtitleStreamIndex = burnInSubIndex,
+                BurnInGraphicalSubtitleFilters = burnInSubFilters,
+                BurnInTextSubtitleFilter = burnInTextFilter
             };
 
             foreach (var provider in _sessionMediaEditGraphProviders)
@@ -7885,6 +7900,106 @@ namespace MediaBrowser.Controller.MediaEncoding
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Fills burn-in args for the edit graph: text/ASS via <c>subtitles=</c>, or
+        /// graphical (internal or external) via overlay. Times stay on the original timeline.
+        /// </summary>
+        private void TryFillSubtitleBurnIn(
+            EncodingJobInfo state,
+            out int? graphicalInputIndex,
+            out int? graphicalStreamIndex,
+            out string graphicalFilters,
+            out string textFilter)
+        {
+            graphicalInputIndex = null;
+            graphicalStreamIndex = null;
+            graphicalFilters = null;
+            textFilter = null;
+
+            if (state.SubtitleStream is null || !ShouldEncodeSubtitle(state))
+            {
+                return;
+            }
+
+            if (state.SubtitleStream.IsTextSubtitleStream)
+            {
+                textFilter = TryGetOriginalTimelineTextSubtitlesFilter(state);
+                return;
+            }
+
+            if (state.MediaSource?.MediaStreams is null)
+            {
+                return;
+            }
+
+            var idx = FindIndex(state.MediaSource.MediaStreams, state.SubtitleStream);
+            if (idx < 0)
+            {
+                return;
+            }
+
+            graphicalInputIndex = state.SubtitleStream.IsExternal ? 1 : 0;
+            graphicalStreamIndex = idx;
+            var videoW = state.VideoStream?.Width;
+            var videoH = state.VideoStream?.Height;
+            var pre = GetGraphicalSubPreProcessFilters(
+                videoW,
+                videoH,
+                state.SubtitleStream.Width,
+                state.SubtitleStream.Height,
+                state.BaseRequest?.Width,
+                state.BaseRequest?.Height,
+                state.BaseRequest?.MaxWidth,
+                state.BaseRequest?.MaxHeight);
+            graphicalFilters = string.IsNullOrEmpty(pre)
+                ? "format=yuva420p"
+                : pre + ",format=yuva420p";
+        }
+
+        /// <summary>
+        /// Builds stock <c>subtitles=</c> without a start-time setpts shift so cues stay
+        /// on the original timeline the edit graph cuts from.
+        /// </summary>
+        private string TryGetOriginalTimelineTextSubtitlesFilter(EncodingJobInfo state)
+        {
+            if (state.BaseRequest is null)
+            {
+                return null;
+            }
+
+            var savedStart = state.BaseRequest.StartTimeTicks;
+            var savedCopy = state.BaseRequest.CopyTimestamps;
+            try
+            {
+                state.BaseRequest.StartTimeTicks = 0;
+                state.BaseRequest.CopyTimestamps = true;
+                var filter = GetTextSubtitlesFilter(state, false, false);
+                if (string.IsNullOrWhiteSpace(filter)
+                    || !filter.StartsWith("subtitles=", StringComparison.Ordinal)
+                    || filter.Contains('[', StringComparison.Ordinal)
+                    || filter.Contains(']', StringComparison.Ordinal)
+                    || filter.Contains(';', StringComparison.Ordinal)
+                    || filter.Contains('\n', StringComparison.Ordinal)
+                    || filter.Contains('\r', StringComparison.Ordinal))
+                {
+                    return null;
+                }
+
+                return filter;
+            }
+#pragma warning disable CA1031 // Subtitle extract/charset can fail; skip burn-in rather than abort the encode.
+            catch (Exception)
+            {
+                return null;
+            }
+#pragma warning restore CA1031
+            finally
+            {
+                state.BaseRequest.StartTimeTicks = savedStart;
+                state.BaseRequest.CopyTimestamps = savedCopy;
+            }
         }
 
         /// <summary>

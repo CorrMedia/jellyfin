@@ -11,7 +11,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services;
 /// <param name="SkipRanges">Absolute skip (cut) windows in seconds.</param>
 /// <param name="VideoEffects">Duration-preserving video effects on the original timeline.</param>
 /// <param name="OriginalDurationSeconds">Uncut item duration in seconds, or 0 if unknown.</param>
-public sealed record EdlEditPlan(
+public sealed record CorrEditPlan(
     IReadOnlyList<MuteTimeRange> MuteRanges,
     IReadOnlyList<MuteTimeRange> SkipRanges,
     IReadOnlyList<VideoEffect> VideoEffects,

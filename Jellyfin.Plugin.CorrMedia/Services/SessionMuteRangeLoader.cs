@@ -1,7 +1,6 @@
 #if PATCHED_CORE
 
 using System;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,19 +9,22 @@ using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Session;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.CorrMedia.Services
 {
     /// <summary>
-    /// Loads corr.json edits into <see cref="EdlEditStore"/> before the first stream request,
-    /// only when the client selected the Edited media source.
+    /// Loads corr.json edits into <see cref="CorrEditStore"/> before the first stream request
+    /// when this user has sidecar edits enabled for the item.
     /// </summary>
     public sealed class SessionMuteRangeLoader : ISessionMuteRangeLoader
     {
         private readonly ISessionManager _sessionManager;
         private readonly ILibraryManager _libraryManager;
-        private readonly EdlEditStore _edlEditStore;
+        private readonly CorrEditStore _corrEditStore;
+        private readonly EditOverrideStore _editOverrideStore;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<SessionMuteRangeLoader> _logger;
 
         /// <summary>
@@ -30,17 +32,23 @@ namespace Jellyfin.Plugin.CorrMedia.Services
         /// </summary>
         /// <param name="sessionManager">Session manager.</param>
         /// <param name="libraryManager">Library manager.</param>
-        /// <param name="edlEditStore">EDL store.</param>
+        /// <param name="corrEditStore">Sidecar edit store.</param>
+        /// <param name="editOverrideStore">Per-user apply/filter store.</param>
+        /// <param name="httpContextAccessor">Current request, for the playing user.</param>
         /// <param name="logger">Logger.</param>
         public SessionMuteRangeLoader(
             ISessionManager sessionManager,
             ILibraryManager libraryManager,
-            EdlEditStore edlEditStore,
+            CorrEditStore corrEditStore,
+            EditOverrideStore editOverrideStore,
+            IHttpContextAccessor httpContextAccessor,
             ILogger<SessionMuteRangeLoader> logger)
         {
             _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
             _libraryManager = libraryManager ?? throw new ArgumentNullException(nameof(libraryManager));
-            _edlEditStore = edlEditStore ?? throw new ArgumentNullException(nameof(edlEditStore));
+            _corrEditStore = corrEditStore ?? throw new ArgumentNullException(nameof(corrEditStore));
+            _editOverrideStore = editOverrideStore ?? throw new ArgumentNullException(nameof(editOverrideStore));
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -55,11 +63,17 @@ namespace Jellyfin.Plugin.CorrMedia.Services
             cancellationToken.ThrowIfCancellationRequested();
 
             var session = FindSession(playSessionId, deviceId);
+            var userId = session?.UserId ?? TryGetRequestUserId();
 
-            // Original (or unknown) source: clear any prior Edited plan so mute/cut cannot leak.
-            if (!EdlMediaSourceIds.IsEdited(mediaSourceId))
+            if (!CorrPlaybackEvaluator.TryGetAppliedEdits(
+                    _libraryManager,
+                    _editOverrideStore,
+                    itemId,
+                    userId,
+                    out var edits,
+                    _logger))
             {
-                _edlEditStore.Clear(playSessionId, deviceId, session?.Id, session?.DeviceId);
+                _corrEditStore.Clear(playSessionId, deviceId, session?.Id, session?.DeviceId);
                 return Task.CompletedTask;
             }
 
@@ -77,20 +91,14 @@ namespace Jellyfin.Plugin.CorrMedia.Services
 
             if (string.IsNullOrEmpty(path))
             {
+                _corrEditStore.Clear(playSessionId, deviceId, session?.Id, session?.DeviceId);
                 return Task.CompletedTask;
             }
 
-            var corrPath = CorrFile.GetPath(path);
-            if (!File.Exists(corrPath))
-            {
-                return Task.CompletedTask;
-            }
-
-            var edits = CorrFile.Parse(corrPath);
-            if (!edits.HasPlaybackEdits)
-            {
-                return Task.CompletedTask;
-            }
+            _logger.LogDebug(
+                "SessionMuteRangeLoader: user overrides User={UserId} applied={Applied}",
+                userId,
+                edits.Mutes.Count + edits.Skips.Count + edits.VideoEffects.Count);
 
             var originalDuration = item?.RunTimeTicks is long ticks && ticks > 0
                 ? TimeSpan.FromTicks(ticks).TotalSeconds
@@ -117,8 +125,8 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 }
             }
 
-            _edlEditStore.SetPlan(
-                new EdlEditPlan(edits.Mutes, edits.Skips, edits.VideoEffects, originalDuration)
+            _corrEditStore.SetPlan(
+                new CorrEditPlan(edits.Mutes, edits.Skips, edits.VideoEffects, originalDuration)
                 {
                     SourceChannelLayout = layout,
                     SourceChannelCount = channelCount,
@@ -129,7 +137,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 session?.DeviceId);
 
             _logger.LogDebug(
-                "SessionMuteRangeLoader: Edited source mutes={MuteCount} skips={SkipCount} videoEffects={VideoEffectCount} PlaySessionId={PlaySessionId} MediaSourceId={MediaSourceId}",
+                "SessionMuteRangeLoader: sidecar edits mutes={MuteCount} skips={SkipCount} videoEffects={VideoEffectCount} PlaySessionId={PlaySessionId} MediaSourceId={MediaSourceId}",
                 edits.Mutes.Count,
                 edits.Skips.Count,
                 edits.VideoEffects.Count,
@@ -137,6 +145,14 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 mediaSourceId);
 
             return Task.CompletedTask;
+        }
+
+        private Guid TryGetRequestUserId()
+        {
+            var value = _httpContextAccessor.HttpContext?.User?.Claims
+                .FirstOrDefault(c => string.Equals(c.Type, "Jellyfin-UserId", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            return Guid.TryParse(value, out var userId) ? userId : Guid.Empty;
         }
 
         private SessionInfo? FindSession(string? playSessionId, string? deviceId)

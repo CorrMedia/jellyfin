@@ -39,4 +39,27 @@ public sealed class SessionMediaEditGraphContext
     /// after channel mute when the output is stereo and the source is multi-channel.
     /// </summary>
     public string? StereoDownmixFilter { get; init; }
+
+    /// <summary>
+    /// Gets the FFmpeg input file index for a graphical subtitle burn-in
+    /// (0 = internal in the main file, 1 = external second <c>-i</c>), or null.
+    /// </summary>
+    public int? BurnInGraphicalSubtitleInputIndex { get; init; }
+
+    /// <summary>
+    /// Gets the FFmpeg stream index within that input of a graphical subtitle (PGS/DVD)
+    /// to burn in on the original timeline before cuts, or null when not burning.
+    /// </summary>
+    public int? BurnInGraphicalSubtitleStreamIndex { get; init; }
+
+    /// <summary>
+    /// Gets scale/format filters for the graphical subtitle stream (no pad labels), or null.
+    /// </summary>
+    public string? BurnInGraphicalSubtitleFilters { get; init; }
+
+    /// <summary>
+    /// Gets an FFmpeg <c>subtitles=</c> filter for text/ASS burn-in on the original
+    /// timeline before cuts, or null when not burning text.
+    /// </summary>
+    public string? BurnInTextSubtitleFilter { get; init; }
 }

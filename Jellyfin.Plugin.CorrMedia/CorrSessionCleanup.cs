@@ -10,13 +10,13 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia
 {
     /// <summary>
-    /// Clears corr.json edit plans when sessions end. Plans are loaded only for Edited sources.
+    /// Clears corr.json edit plans when sessions end.
     /// </summary>
     public sealed class CorrSessionCleanup : IHostedService, IDisposable
     {
         private readonly ISessionManager _sessionManager;
         private readonly ILogger<CorrSessionCleanup> _logger;
-        private readonly EdlEditStore _edlEditStore;
+        private readonly CorrEditStore _corrEditStore;
         private bool _disposed;
 
         /// <summary>
@@ -24,15 +24,15 @@ namespace Jellyfin.Plugin.CorrMedia
         /// </summary>
         /// <param name="sessionManager">Session manager.</param>
         /// <param name="logger">Logger.</param>
-        /// <param name="edlEditStore">Edit plan store.</param>
+        /// <param name="corrEditStore">Edit plan store.</param>
         public CorrSessionCleanup(
             ISessionManager sessionManager,
             ILogger<CorrSessionCleanup> logger,
-            EdlEditStore edlEditStore)
+            CorrEditStore corrEditStore)
         {
             _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _edlEditStore = edlEditStore ?? throw new ArgumentNullException(nameof(edlEditStore));
+            _corrEditStore = corrEditStore ?? throw new ArgumentNullException(nameof(corrEditStore));
             _sessionManager.SessionEnded += OnSessionEnded;
         }
 
@@ -40,7 +40,7 @@ namespace Jellyfin.Plugin.CorrMedia
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation(
-                "CorrSessionCleanup started — corr.json plans load only for Edited media sources; Original stays untouched.");
+                "CorrSessionCleanup started — corr.json plans load when sidecar edits apply for the user.");
             return Task.CompletedTask;
         }
 
@@ -55,7 +55,7 @@ namespace Jellyfin.Plugin.CorrMedia
             }
 
             var session = e.SessionInfo;
-            _edlEditStore.Clear(session.Id, session.DeviceId);
+            _corrEditStore.Clear(session.Id, session.DeviceId);
         }
 
         /// <inheritdoc />

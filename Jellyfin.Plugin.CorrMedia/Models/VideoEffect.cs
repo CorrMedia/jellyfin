@@ -16,6 +16,7 @@ namespace Jellyfin.Plugin.CorrMedia.Models;
 /// <param name="CenterXEnd">Optional zoom/crop center X at range end. Null means no X pan.</param>
 /// <param name="CenterYEnd">Optional zoom/crop center Y at range end. Null means no Y pan.</param>
 /// <param name="BlockSize">Pixelate block size in pixels. Ignored for other kinds.</param>
+/// <param name="Id">Sidecar edit id (or a stable synthetic id when omitted).</param>
 public sealed record VideoEffect(
     VideoEffectKind Kind,
     double StartTime,
@@ -28,4 +29,5 @@ public sealed record VideoEffect(
     NormalizedBox? BoxEnd = null,
     double? CenterXEnd = null,
     double? CenterYEnd = null,
-    double BlockSize = 16);
+    double BlockSize = 16,
+    string Id = "");

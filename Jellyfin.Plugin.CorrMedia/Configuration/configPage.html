@@ -1,54 +1,491 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>CorrMedia</title>
-</head>
-<body>
-    <div id="TemplateConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button,emby-checkbox">
-        <div data-role="content">
-            <div class="content-primary">
-                <form id="TemplateConfigForm">
-
+<div id="CorrMediaConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button,emby-checkbox">
+    <style>
+        #CorrMediaConfigPage .corr-group {
+            margin-top: 0.35em;
+        }
+        #CorrMediaConfigPage .corr-row,
+        #CorrMediaConfigPage .corr-expand,
+        #CorrMediaConfigPage .corr-icon-btn {
+            display: flex;
+            align-items: center;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+        }
+        #CorrMediaConfigPage .corr-row {
+            justify-content: space-between;
+            gap: 0.75em;
+            width: 100%;
+            padding: 0.5em 0;
+            text-align: left;
+        }
+        #CorrMediaConfigPage .corr-expand {
+            flex: 1;
+            min-width: 0;
+            gap: 0.65em;
+            text-align: left;
+        }
+        #CorrMediaConfigPage .corr-icon-btn {
+            flex-shrink: 0;
+        }
+        #CorrMediaConfigPage .corr-expand,
+        #CorrMediaConfigPage .corr-icon-btn,
+        #CorrMediaConfigPage .corr-leaf {
+            box-shadow: none;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        #CorrMediaConfigPage .corr-chev {
+            display: inline-block;
+            width: 0.45em;
+            height: 0.45em;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            transform: rotate(-45deg);
+            flex-shrink: 0;
+            opacity: 0.85;
+            transition: transform 0.15s ease;
+        }
+        #CorrMediaConfigPage .corr-group.is-open .corr-chev {
+            transform: rotate(45deg);
+        }
+        #CorrMediaConfigPage .corr-major {
+            font-size: 1.05em;
+            font-weight: 700;
+        }
+        #CorrMediaConfigPage .corr-minors {
+            display: none;
+            margin: 0.15em 0 0.35em 0.7em;
+            padding: 0.15em 0 0.15em 1.5em;
+            border-left: 2px solid rgba(94, 200, 240, 0.35);
+        }
+        #CorrMediaConfigPage .corr-group.is-open > .corr-minors {
+            display: block;
+        }
+        #CorrMediaConfigPage .corr-minors .corr-minors {
+            margin-left: 0.55em;
+            padding-left: 1.25em;
+        }
+        #CorrMediaConfigPage .corr-sub {
+            font-size: 0.95em;
+            font-weight: 600;
+        }
+        #CorrMediaConfigPage .corr-leaf {
+            font-size: 0.9em;
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        #CorrMediaConfigPage .corr-toggle {
+            width: 1.7rem;
+            height: 1.7rem;
+            flex-shrink: 0;
+            color: #5ec8f0;
+        }
+        #CorrMediaConfigPage .corr-toggle svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #CorrMediaConfigPage .corr-row.is-filtered .corr-toggle {
+            opacity: 0.45;
+        }
+        #CorrMediaConfigPage .corr-row.is-mixed .corr-toggle {
+            opacity: 0.7;
+        }
+        #CorrMediaConfigPage .corr-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.25em;
+            margin: 0.75em 0 0.25em;
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+        #CorrMediaConfigPage .corr-legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4em;
+        }
+        #CorrMediaConfigPage .corr-legend .corr-toggle {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+        #CorrMediaConfigPage .corr-shared {
+            display: block;
+            margin-top: 0.15em;
+            font-size: 0.75em;
+            font-weight: 400;
+            letter-spacing: 0;
+            text-transform: none;
+            opacity: 0.55;
+        }
+    </style>
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="CorrMediaConfigForm">
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">CorrMedia</h2>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
-                            <input id="PreferEdlApplied" name="PreferEdlApplied" type="checkbox" is="emby-checkbox" />
-                            <span>Prefer Edited when a .corr.json sidecar exists</span>
+                            <input id="CorrApplyEdits" type="checkbox" is="emby-checkbox" />
+                            <span>Apply sidecar edits when a .corr.json file exists</span>
                         </label>
-                        <div class="fieldDescription">When a sidecar .corr.json is present, sort "{Title} (Edited)" ahead of Original so clients that take the first source play the edited version. Uncheck to prefer Original. Clients with an explicit source picker can still choose either.</div>
+                        <div class="fieldDescription">When on, every client plays the sidecar-edited stream (listing play, Continue Watching, apps). Titles show " (Edited)". Turn off to play the untouched file. Restart playback after saving.</div>
+                    </div>
+                </div>
+
+                <div class="verticalSection" id="CorrTreatmentsSection">
+                    <h2 class="sectionTitle">Which sidecar treatments to apply</h2>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input id="CorrApplyAll" type="checkbox" is="emby-checkbox" />
+                            <span>Apply every treatment in the .corr.json sidecar</span>
+                        </label>
+                        <div class="fieldDescription">Default. Run every sidecar edit as written (mute, beep, crop, skip, and so on). Turn this off to choose categories. These controls only turn treatments on or off; they do not change how a treatment is done. Restart playback after saving.</div>
                     </div>
 
-                    <!-- Save Button -->
-                    <div>
-                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
-                            <span>Save</span>
-                        </button>
+                    <div id="CorrCategoryPanel" style="display:none;">
+                        <p class="fieldDescription">The chevron opens a category. The camera or speaker turns that class of sidecar treatment on or off. The sidecar still decides mute vs beep vs crop vs skip. Drill into Language to target specific words. Unknown sidecar tags count as Other.</p>
+                        <div class="corr-legend">
+                            <span><span class="corr-toggle" data-legend="see"></span> Treatment off (original)</span>
+                            <span><span class="corr-toggle" data-legend="see-off"></span> Apply sidecar treatment</span>
+                        </div>
+
+                        <div id="CorrCategoryTree"></div>
                     </div>
-                </form>
-            </div>
+                </div>
+
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
         </div>
+    </div>
+    <script>
+        (function () {
+            var videoPath = '<path fill="currentColor" d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>';
+            var audioPath = '<path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>';
+            var strike = '<line x1="2" y1="20" x2="22" y2="4" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/>';
 
-        <script type="text/javascript">
-            var TemplateConfig = {
-                pluginUniqueId: 'd477f9fe-bde6-467c-88ba-5336048f955c'
-            };
+            function pageEl() {
+                return document.querySelector('#CorrMediaConfigPage');
+            }
 
-            document.querySelector('#TemplateConfigPage')
-                .addEventListener('pageshow', function () {
-                    Dashboard.requestPluginConfiguration(TemplateConfig.pluginUniqueId)
-                        .then(function (config) {
-                            document.querySelector('#PreferEdlApplied').checked = config.PreferEdlApplied !== false;
+            function pick(obj, camel, pascal) {
+                if (!obj) {
+                    return undefined;
+                }
+                return obj[camel] !== undefined ? obj[camel] : obj[pascal];
+            }
+
+            function escapeHtml(value) {
+                return String(value || '').replace(/[&<>"']/g, function (ch) {
+                    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+                });
+            }
+
+            function iconSvg(channel, filtered) {
+                var body = channel === 'hear' ? audioPath : videoPath;
+                return '<svg viewBox="0 0 24 24" aria-hidden="true">' + body + (filtered ? strike : '') + '</svg>';
+            }
+
+            function channelOf(row) {
+                return row.getAttribute('data-channel') === 'hear' ? 'hear' : 'see';
+            }
+
+            function paintRow(row) {
+                var filtered = row.classList.contains('is-filtered');
+                var mixed = row.classList.contains('is-mixed');
+                var channel = channelOf(row);
+                var toggle = row.querySelector('.corr-toggle');
+                if (toggle) {
+                    toggle.innerHTML = iconSvg(channel, filtered && !mixed);
+                }
+                var labelEl = row.querySelector('.corr-label');
+                var label = labelEl ? labelEl.textContent : '';
+                var control = row.querySelector('.corr-icon-btn') || row;
+                if (filtered) {
+                    control.setAttribute('aria-pressed', 'true');
+                    control.setAttribute('aria-label', label.trim() + ', apply sidecar treatment');
+                } else if (mixed) {
+                    control.setAttribute('aria-pressed', 'false');
+                    control.setAttribute('aria-label', label.trim() + ', some sidecar treatments applied');
+                } else {
+                    control.setAttribute('aria-pressed', 'false');
+                    control.setAttribute('aria-label', label.trim() + ', sidecar treatment off, original');
+                }
+            }
+
+            function isFiltered(row) {
+                return row.classList.contains('is-filtered');
+            }
+
+            function setFiltered(row, filtered) {
+                row.classList.toggle('is-filtered', !!filtered);
+                row.classList.remove('is-mixed');
+                paintRow(row);
+            }
+
+            function setFilteredById(id, filtered) {
+                var page = pageEl();
+                page.querySelectorAll('.corr-row[data-id="' + id + '"]').forEach(function (row) {
+                    if (row.classList.contains('corr-leaf')) {
+                        setFiltered(row, filtered);
+                    }
+                });
+            }
+
+            function nodeChannel(node, fallback) {
+                var channel = pick(node, 'channel', 'Channel');
+                if (channel === 'hear' || channel === 'see') {
+                    return channel;
+                }
+                return fallback === 'hear' ? 'hear' : 'see';
+            }
+
+            function renderNode(node, fallbackChannel) {
+                var id = pick(node, 'id', 'Id') || '';
+                var children = pick(node, 'children', 'Children') || [];
+                var channel = nodeChannel(node, fallbackChannel);
+                var shared = pick(node, 'sharedWith', 'SharedWith');
+                var sharedHtml = shared
+                    ? '<span class="corr-shared">Also in ' + escapeHtml(shared) + '</span>'
+                    : '';
+                var label = escapeHtml(pick(node, 'label', 'Label'));
+                if (!children.length) {
+                    return '<button type="button" class="corr-row corr-leaf" data-id="' + escapeHtml(id) + '" data-channel="' + channel + '">' +
+                        '<span><span class="corr-label">' + label + '</span>' + sharedHtml + '</span>' +
+                        '<span class="corr-toggle"></span></button>';
+                }
+                var nested = children.map(function (child) {
+                    return renderNode(child, channel);
+                }).join('');
+                return '<div class="corr-group" data-id="' + escapeHtml(id) + '">' +
+                    '<div class="corr-row corr-sub" data-id="' + escapeHtml(id) + '" data-channel="' + channel + '">' +
+                    '<button type="button" class="corr-expand" aria-expanded="false"><span class="corr-chev"></span><span class="corr-label">' + label + '</span></button>' +
+                    '<button type="button" class="corr-icon-btn"><span class="corr-toggle"></span></button></div>' +
+                    '<div class="corr-minors">' + nested + '</div></div>';
+            }
+
+            function renderTree(groups) {
+                var page = pageEl();
+                var host = page.querySelector('#CorrCategoryTree');
+                host.innerHTML = (groups || []).map(function (group) {
+                    var majorId = pick(group, 'id', 'Id') || '';
+                    var majorChannel = pick(group, 'channel', 'Channel') === 'hear' ? 'hear' : 'see';
+                    var minors = pick(group, 'minors', 'Minors') || [];
+                    var nested = minors.map(function (minor) {
+                        return renderNode(minor, majorChannel);
+                    }).join('');
+                    return '<div class="corr-group" data-id="' + escapeHtml(majorId) + '">' +
+                        '<div class="corr-row corr-major" data-id="' + escapeHtml(majorId) + '" data-channel="' + majorChannel + '">' +
+                        '<button type="button" class="corr-expand" aria-expanded="false"><span class="corr-chev"></span><span class="corr-label">' + escapeHtml(pick(group, 'label', 'Label')) + '</span></button>' +
+                        '<button type="button" class="corr-icon-btn"><span class="corr-toggle"></span></button></div>' +
+                        '<div class="corr-minors">' + nested + '</div></div>';
+                }).join('');
+            }
+
+            function syncTreatmentsSection() {
+                var page = pageEl();
+                var applyEdits = page.querySelector('#CorrApplyEdits');
+                var section = page.querySelector('#CorrTreatmentsSection');
+                if (section) {
+                    section.style.display = applyEdits && applyEdits.checked ? 'block' : 'none';
+                }
+            }
+
+            function syncPanel() {
+                var page = pageEl();
+                var applyAll = page.querySelector('#CorrApplyAll');
+                var panel = page.querySelector('#CorrCategoryPanel');
+                if (panel) {
+                    panel.style.display = applyAll && applyAll.checked ? 'none' : 'block';
+                }
+            }
+
+            function syncBranches() {
+                var page = pageEl();
+                var groups = page.querySelectorAll('.corr-group');
+                for (var i = groups.length - 1; i >= 0; i--) {
+                    var group = groups[i];
+                    var row = group.querySelector(':scope > .corr-row');
+                    var leaves = group.querySelectorAll('.corr-leaf');
+                    var on = 0;
+                    leaves.forEach(function (leaf) {
+                        if (isFiltered(leaf)) {
+                            on += 1;
+                        }
+                    });
+                    if (!row) {
+                        continue;
+                    }
+                    row.classList.toggle('is-filtered', leaves.length > 0 && on === leaves.length);
+                    row.classList.toggle('is-mixed', on > 0 && on < leaves.length);
+                    paintRow(row);
+                }
+            }
+
+            function collectEnabledFromTree(nodes, enabled) {
+                (nodes || []).forEach(function (node) {
+                    enabled[pick(node, 'id', 'Id')] = pick(node, 'enabled', 'Enabled') !== false;
+                    collectEnabledFromTree(pick(node, 'children', 'Children') || pick(node, 'minors', 'Minors'), enabled);
+                });
+            }
+
+            function applyDto(dto) {
+                var page = pageEl();
+                var applyEdits = pick(dto, 'applyEdits', 'ApplyEdits');
+                page.querySelector('#CorrApplyEdits').checked = applyEdits !== false;
+                var restrict = !!pick(dto, 'restrictToCategories', 'RestrictToCategories');
+                page.querySelector('#CorrApplyAll').checked = !restrict;
+                var groups = pick(dto, 'groups', 'Groups') || [];
+                renderTree(groups);
+                var enabled = {};
+                collectEnabledFromTree(groups, enabled);
+                page.querySelectorAll('.corr-leaf').forEach(function (leaf) {
+                    var id = leaf.getAttribute('data-id');
+                    setFiltered(leaf, restrict ? !!enabled[id] : true);
+                });
+                syncBranches();
+                syncPanel();
+                syncTreatmentsSection();
+            }
+
+            function paintLegend() {
+                var page = pageEl();
+                page.querySelectorAll('.corr-legend .corr-toggle').forEach(function (el) {
+                    var off = el.getAttribute('data-legend') === 'see-off';
+                    el.innerHTML = iconSvg('see', off);
+                    if (off) {
+                        el.style.opacity = '0.45';
+                    }
+                });
+            }
+
+            function load() {
+                var page = pageEl();
+                if (!page) {
+                    return;
+                }
+                ApiClient.getJSON(ApiClient.getUrl('CorrMedia/Filters')).then(applyDto).catch(function () {
+                    applyDto({ applyEdits: true, restrictToCategories: false, groups: [] });
+                });
+            }
+
+            function bind() {
+                var page = pageEl();
+                if (!page || page.getAttribute('data-corr-bound') === '1') {
+                    return;
+                }
+                page.setAttribute('data-corr-bound', '1');
+                paintLegend();
+
+                page.querySelector('#CorrApplyEdits').addEventListener('change', syncTreatmentsSection);
+
+                page.querySelector('#CorrApplyAll').addEventListener('change', function () {
+                    if (!this.checked) {
+                        var anyOn = false;
+                        page.querySelectorAll('.corr-leaf').forEach(function (leaf) {
+                            if (isFiltered(leaf)) {
+                                anyOn = true;
+                            }
                         });
+                        if (!anyOn) {
+                            page.querySelectorAll('.corr-leaf').forEach(function (leaf) {
+                                setFiltered(leaf, true);
+                            });
+                        }
+                        syncBranches();
+                    }
+                    syncPanel();
                 });
 
-            document.querySelector('#TemplateConfigForm')
-                .addEventListener('submit', function (e) {
+                page.querySelector('#CorrCategoryPanel').addEventListener('click', function (e) {
+                    var expand = e.target.closest('.corr-expand');
+                    if (expand) {
+                        var group = expand.closest('.corr-group');
+                        var open = !group.classList.contains('is-open');
+                        group.classList.toggle('is-open', open);
+                        expand.setAttribute('aria-expanded', open ? 'true' : 'false');
+                        return;
+                    }
+
+                    var iconBtn = e.target.closest('.corr-icon-btn');
+                    if (iconBtn) {
+                        var group = iconBtn.closest('.corr-group');
+                        var leaves = group.querySelectorAll('.corr-leaf');
+                        var allOn = true;
+                        leaves.forEach(function (leaf) {
+                            if (!isFiltered(leaf)) {
+                                allOn = false;
+                            }
+                        });
+                        var seen = {};
+                        leaves.forEach(function (leaf) {
+                            var leafId = leaf.getAttribute('data-id');
+                            if (leafId && !seen[leafId]) {
+                                seen[leafId] = true;
+                                setFilteredById(leafId, !allOn);
+                            }
+                        });
+                        syncBranches();
+                        return;
+                    }
+
+                    var leaf = e.target.closest('.corr-leaf');
+                    if (leaf) {
+                        setFilteredById(leaf.getAttribute('data-id'), !isFiltered(leaf));
+                        syncBranches();
+                    }
+                });
+
+                page.querySelector('#CorrMediaConfigForm').addEventListener('submit', function (e) {
                     e.preventDefault();
-                    Dashboard.savePluginConfiguration(TemplateConfig.pluginUniqueId, {
-                        PreferEdlApplied: document.querySelector('#PreferEdlApplied').checked
+                    var applyAll = page.querySelector('#CorrApplyAll').checked;
+                    var enabled = [];
+                    var seen = {};
+                    page.querySelectorAll('.corr-leaf').forEach(function (leaf) {
+                        var id = leaf.getAttribute('data-id');
+                        if (isFiltered(leaf) && id && !seen[id]) {
+                            seen[id] = true;
+                            enabled.push(id);
+                        }
+                    });
+                    Dashboard.showLoadingMsg();
+                    ApiClient.ajax({
+                        type: 'PUT',
+                        url: ApiClient.getUrl('CorrMedia/Filters'),
+                        data: JSON.stringify({
+                            applyEdits: page.querySelector('#CorrApplyEdits').checked,
+                            restrictToCategories: !applyAll,
+                            enabledCategories: applyAll ? [] : enabled
+                        }),
+                        contentType: 'application/json',
+                        dataType: 'json'
+                    }).then(function () {
+                        Dashboard.processPluginConfigurationUpdateResult();
+                    }).catch(function () {
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert('Could not save CorrMedia settings.');
                     });
                 });
-        </script>
-    </div>
-</body>
-</html>
+            }
+
+            bind();
+            load();
+            var page = pageEl();
+            if (page) {
+                page.addEventListener('pageshow', load);
+                page.addEventListener('viewshow', load);
+            }
+        })();
+    </script>
+</div>

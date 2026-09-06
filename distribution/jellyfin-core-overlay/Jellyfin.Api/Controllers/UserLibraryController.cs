@@ -14,7 +14,6 @@ using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
@@ -23,7 +22,6 @@ using MediaBrowser.Model.Querying;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Jellyfin.Api.Controllers;
 
@@ -89,24 +87,6 @@ public class UserLibraryController : BaseJellyfinApiController
         var item = itemId.IsEmpty()
             ? _libraryManager.GetUserRootFolder()
             : _libraryManager.GetItemById<BaseItem>(itemId, user);
-        if (item is null)
-        {
-            // jellyfin-web 10.10/10.11 calls GetItem with the Version dropdown value, which for
-            // CorrMedia Edited sources is a synthetic Guid, not a library item id.
-            foreach (var hint in HttpContext.RequestServices.GetServices<ISessionEdlDeliveryHint>())
-            {
-                if (hint.TryGetLibraryItemId(itemId.ToString("N"), out var resolvedId)
-                    || hint.TryGetLibraryItemId(itemId.ToString("D"), out resolvedId))
-                {
-                    item = _libraryManager.GetItemById<BaseItem>(resolvedId, user);
-                    if (item is not null)
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-
         if (item is null)
         {
             return NotFound();

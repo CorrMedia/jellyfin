@@ -29,7 +29,7 @@
         "required": ["start", "end", "action"],
         "additionalProperties": true,
         "properties": {
-          "id": { "type": "string" },
+          "id": { "type": "string", "description": "Stable id for per-user honor/ignore. If omitted, the plugin synthesizes {action}:{start}:{end}." },
           "start": { "type": "number", "minimum": 0, "description": "Range start in seconds on the original source timeline. Never adjusted for cuts or other length-changing edits." },
           "end": { "type": "number", "description": "Range end in seconds on the original source timeline; must be greater than start. Never adjusted for cuts or other length-changing edits." },
           "action": {
@@ -120,7 +120,8 @@
           },
           "categories": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": { "type": "string" },
+            "description": "Content tags used to turn sidecar treatments on or off. Preferred ids match the dashboard taxonomy (profanity, word_ass, sex_with_nudity, graphic, …). A parent id applies the whole group; a word id applies that word only. The action on the edit still decides mute vs beep vs crop vs skip. Aliases: sex, nudity, ass, fuck, violence, language. Unknown tokens map to other."
           },
           "severity": { "type": "integer" },
           "description": { "type": "string" }

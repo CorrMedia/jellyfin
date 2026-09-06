@@ -48,4 +48,18 @@ foreach ($f in $items) {
     Write-Host "Copied: $relative -> $dest"
 }
 
+# Overlay copy does not remove files that were renamed away. Drop leftovers so
+# the Jellyfin tree cannot compile two generations of the same hook.
+$obsoleteRelative = @(
+    'MediaBrowser.Controller\MediaEncoding\ISessionEdlDeliveryHint.cs',
+    'MediaBrowser.Controller\MediaEncoding\NoOpSessionEdlDeliveryHint.cs'
+)
+foreach ($rel in $obsoleteRelative) {
+    $obsolete = Join-Path $jellyfinRoot $rel
+    if (Test-Path -LiteralPath $obsolete) {
+        Remove-Item -Force -LiteralPath $obsolete
+        Write-Host "Removed obsolete overlay leftover: $rel"
+    }
+}
+
 Write-Host "Core overlay applied to $jellyfinRoot"

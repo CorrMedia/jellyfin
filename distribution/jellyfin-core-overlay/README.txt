@@ -4,15 +4,15 @@ Server-side mute + cut: Jellyfin core overlay (10.11.11)
 Adds:
 - ISessionAudioFilterProvider — mute-only -af injection
 - ISessionMediaEditGraphProvider — effects-then-cut -filter_complex (mute/zoom/blur first, then cut; times on original source)
-- ISessionMuteRangeLoader — pre-stream sidecar load (Edited MediaSourceId only)
-- ISessionEdlDeliveryHint — Edited detection, PreferEdl sort, force HLS when cuts exist
-- EncodingHelper / VideosController / DynamicHlsController / DynamicHlsHelper / StreamingHelpers / MediaInfoHelper / UserLibraryController wiring
+- ISessionMuteRangeLoader — pre-stream sidecar load when the user has edits enabled
+- ISessionCorrDeliveryHint — apply-edits detection on the primary source, force HLS when cuts exist, shortened runtime
+- ISessionSubtitleCueRewriter — remap HLS / external VTT and SRT cues onto the edited timeline
+- ISessionTrickplayRewriter / ITrickplayCellCropper — remap trickplay duration and tile cells onto the edited timeline
+- EncodingHelper / VideosController / DynamicHlsController / DynamicHlsHelper / StreamingHelpers / MediaInfoHelper / DtoService / MediaSourceManager / UserLibraryController / SubtitleController / TrickplayController / CoreAppHost wiring
 
-Dual delivery: CorrMedia EdlMediaSourceProvider adds "{Title} (Edited)" (*_edl).
-Mute/cut/HLS apply only when that MediaSourceId is selected.
-DtoService item MediaSources include dynamic providers so the web Version picker shows
-Original vs Edited (static-only previously hid the Edited source).
-PackageController falls back to installed-plugin metadata so sideloaded CorrMedia
+When a `.corr.json` sidecar exists and the user has apply-edits on, the normal library item
+transcodes with the graph. Titles and media-source names get " (Edited)". There is no second
+MediaSource. PackageController falls back to installed-plugin metadata so sideloaded CorrMedia
 does not 404 the dashboard plugin details page.
 
 Apply:

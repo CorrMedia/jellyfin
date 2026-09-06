@@ -64,7 +64,7 @@ public class VideosController : BaseJellyfinApiController
     /// <param name="transcodeManager">Instance of the <see cref="ITranscodeManager"/> interface.</param>
     /// <param name="httpClientFactory">Instance of the <see cref="IHttpClientFactory"/> interface.</param>
     /// <param name="encodingHelper">Instance of <see cref="EncodingHelper"/>.</param>
-    /// <param name="muteRangeLoaders">Optional loaders to ensure EDL mute ranges are loaded before the first stream request.</param>
+    /// <param name="muteRangeLoaders">Optional loaders to ensure sidecar mute ranges are loaded before the first stream request.</param>
     /// <param name="logger">Optional logger for debug.</param>
     public VideosController(
         ILibraryManager libraryManager,
@@ -434,7 +434,7 @@ public class VideosController : BaseJellyfinApiController
             EnableAudioVbrEncoding = enableAudioVbrEncoding
         };
 
-        // EDL: load ranges for Edited source only, then force transcoding when mute and/or cut graph is needed.
+        // Load sidecar edit plans when they apply for this user, then force transcoding if needed.
         var itemIdStr = streamingRequest.Id.IsEmpty() ? null : streamingRequest.Id.ToString("N");
         foreach (var loader in _muteRangeLoaders ?? Array.Empty<MediaBrowser.Controller.MediaEncoding.ISessionMuteRangeLoader>())
         {
@@ -498,7 +498,7 @@ public class VideosController : BaseJellyfinApiController
             return BadRequest($"Input protocol {state.InputProtocol} cannot be streamed statically");
         }
 
-        // Static stream (skip when EDL mute/cut must be applied)
+        // Static stream (skip when sidecar mute/cut must be applied)
         if (@static.HasValue && @static.Value && !(state.MediaSource.VideoType == VideoType.BluRay || state.MediaSource.VideoType == VideoType.Dvd)
             && !hasEditGraph
             && !hasMuteFilter)
@@ -520,7 +520,7 @@ public class VideosController : BaseJellyfinApiController
         var ffmpegCommandLineArguments = _encodingHelper.GetProgressiveVideoFullCommandLine(state, encodingOptions, EncoderPreset.superfast);
         var hasSeek = ffmpegCommandLineArguments.Contains("-ss ", StringComparison.Ordinal);
         _logger?.LogInformation(
-            "[EdlSeek] progressive hasInputSs={HasSeek} StartTimeTicks={Ticks} editGraph={EditGraph}",
+            "[CorrSeek] progressive hasInputSs={HasSeek} StartTimeTicks={Ticks} editGraph={EditGraph}",
             hasSeek,
             state.BaseRequest?.StartTimeTicks,
             hasEditGraph);

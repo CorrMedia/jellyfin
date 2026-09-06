@@ -1,14 +1,14 @@
 {
   "category": "General",
-  "changelog": "Sidecar .corr.json mute and skip on patched Jellyfin 10.11.11.",
-  "description": "Applies sidecar .corr.json mute and skip during playback on patched Jellyfin (see ROADMAP.md).",
+  "changelog": "Primary-item sidecar edits: mute/volume/beep, zoom/crop/blur/pixelate/cover/blank, skip/cut, per-user category filters. Requires patched Jellyfin 10.11.11.",
+  "description": "Applies sidecar .corr.json edits during playback on patched Jellyfin. Per-user apply toggle and category filters.",
   "guid": "d477f9fe-bde6-467c-88ba-5336048f955c",
   "name": "CorrMedia",
-  "overview": "Mute and skip from .corr.json sidecar",
+  "overview": "Sidecar .corr.json edits on patched Jellyfin",
   "owner": "CorrMedia",
   "targetAbi": "10.11.11.0",
   "timestamp": "2026-09-05T00:00:00Z",
-  "version": "1.0.1.0",
+  "version": "1.1.0.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": []

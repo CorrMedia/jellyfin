@@ -5,18 +5,18 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CorrMedia.Services;
 
 /// <summary>
-/// In-process EDL mute + skip ranges keyed by play session / device / session id.
+/// In-process sidecar mute + skip ranges keyed by play session / device / session id.
 /// </summary>
-public sealed class EdlEditStore
+public sealed class CorrEditStore
 {
-    private readonly ConcurrentDictionary<string, EdlEditPlan> _plans = new(StringComparer.Ordinal);
-    private readonly ILogger<EdlEditStore> _logger;
+    private readonly ConcurrentDictionary<string, CorrEditPlan> _plans = new(StringComparer.Ordinal);
+    private readonly ILogger<CorrEditStore> _logger;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="EdlEditStore"/> class.
+    /// Initializes a new instance of the <see cref="CorrEditStore"/> class.
     /// </summary>
     /// <param name="logger">Logger.</param>
-    public EdlEditStore(ILogger<EdlEditStore> logger)
+    public CorrEditStore(ILogger<CorrEditStore> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -26,7 +26,7 @@ public sealed class EdlEditStore
     /// </summary>
     /// <param name="plan">Mute and skip ranges.</param>
     /// <param name="keys">Lookup keys.</param>
-    public void SetPlan(EdlEditPlan plan, params string?[] keys)
+    public void SetPlan(CorrEditPlan plan, params string?[] keys)
     {
         ArgumentNullException.ThrowIfNull(plan);
         foreach (var key in keys)
@@ -40,7 +40,7 @@ public sealed class EdlEditStore
         }
 
         _logger.LogInformation(
-            "Stored EDL plan mutes={MuteCount} skips={SkipCount} videoEffects={VideoEffectCount}",
+            "Stored sidecar plan mutes={MuteCount} skips={SkipCount} videoEffects={VideoEffectCount}",
             plan.MuteRanges.Count,
             plan.SkipRanges.Count,
             plan.VideoEffects.Count);
@@ -51,7 +51,7 @@ public sealed class EdlEditStore
     /// </summary>
     /// <param name="keys">Lookup keys.</param>
     /// <returns>Plan or null.</returns>
-    public EdlEditPlan? GetPlan(params string?[] keys)
+    public CorrEditPlan? GetPlan(params string?[] keys)
     {
         foreach (var key in keys)
         {
@@ -61,7 +61,7 @@ public sealed class EdlEditStore
             }
         }
 
-        // Exact key match only — never fall back to a lone plan (dual Original/Edited delivery).
+        // Exact key match only — never fall back to a lone plan.
         return null;
     }
 

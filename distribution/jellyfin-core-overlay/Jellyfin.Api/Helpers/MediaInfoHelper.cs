@@ -45,7 +45,7 @@ public class MediaInfoHelper
     private readonly ILogger<MediaInfoHelper> _logger;
     private readonly INetworkManager _networkManager;
     private readonly IDeviceManager _deviceManager;
-    private readonly IEnumerable<ISessionEdlDeliveryHint> _edlDeliveryHints;
+    private readonly IEnumerable<ISessionCorrDeliveryHint> _corrDeliveryHints;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MediaInfoHelper"/> class.
@@ -58,7 +58,7 @@ public class MediaInfoHelper
     /// <param name="logger">Instance of the <see cref="ILogger{MediaInfoHelper}"/> interface.</param>
     /// <param name="networkManager">Instance of the <see cref="INetworkManager"/> interface.</param>
     /// <param name="deviceManager">Instance of the <see cref="IDeviceManager"/> interface.</param>
-    /// <param name="edlDeliveryHints">Optional EDL delivery hints (force HLS when cuts exist).</param>
+    /// <param name="corrDeliveryHints">Optional sidecar delivery hints (force HLS when cuts exist).</param>
     public MediaInfoHelper(
         IUserManager userManager,
         ILibraryManager libraryManager,
@@ -68,7 +68,7 @@ public class MediaInfoHelper
         ILogger<MediaInfoHelper> logger,
         INetworkManager networkManager,
         IDeviceManager deviceManager,
-        IEnumerable<ISessionEdlDeliveryHint>? edlDeliveryHints = null)
+        IEnumerable<ISessionCorrDeliveryHint>? corrDeliveryHints = null)
     {
         _userManager = userManager;
         _libraryManager = libraryManager;
@@ -78,7 +78,7 @@ public class MediaInfoHelper
         _logger = logger;
         _networkManager = networkManager;
         _deviceManager = deviceManager;
-        _edlDeliveryHints = edlDeliveryHints ?? Array.Empty<ISessionEdlDeliveryHint>();
+        _corrDeliveryHints = corrDeliveryHints ?? Array.Empty<ISessionCorrDeliveryHint>();
     }
 
     /// <summary>
@@ -218,11 +218,11 @@ public class MediaInfoHelper
         var user = _userManager.GetUserById(userId) ?? throw new ResourceNotFoundException();
 
         var itemIdN = item.Id.ToString("N", CultureInfo.InvariantCulture);
-        var isEdlSource = item is Video
-            && _edlDeliveryHints.Any(h => h.IsEdlAppliedMediaSource(mediaSource.Id, itemIdN));
-        if (isEdlSource)
+        var applySidecarEdits = item is Video
+            && _corrDeliveryHints.Any(h => h.ShouldApplySidecarEdits(itemIdN));
+        if (applySidecarEdits)
         {
-            // Edited sources must never DirectPlay/DirectStream (would bypass mute/cut).
+            // Sidecar edits must never DirectPlay/DirectStream (would bypass mute/cut).
             mediaSource.SupportsDirectPlay = false;
             mediaSource.SupportsDirectStream = false;
             mediaSource.SupportsTranscoding = true;
@@ -230,6 +230,22 @@ public class MediaInfoHelper
             enableDirectStream = false;
             options.EnableDirectPlay = false;
             options.EnableDirectStream = false;
+
+            const string editedSuffix = " (Edited)";
+            if (!string.IsNullOrWhiteSpace(mediaSource.Name)
+                && !mediaSource.Name.EndsWith(editedSuffix, StringComparison.Ordinal))
+            {
+                mediaSource.Name += editedSuffix;
+            }
+
+            foreach (var hint in _corrDeliveryHints)
+            {
+                if (hint.TryGetEditedRunTimeTicks(itemIdN, out var ticks))
+                {
+                    mediaSource.RunTimeTicks = ticks;
+                    break;
+                }
+            }
         }
 
         if (!enableDirectPlay)
@@ -282,15 +298,15 @@ public class MediaInfoHelper
             streamInfo.PlaySessionId = playSessionId;
             streamInfo.StartPositionTicks = startTimeTicks;
 
-            var forceEdlHls = isEdlSource
-                && _edlDeliveryHints.Any(h => h.RequiresHls(itemIdN, mediaSource.Id));
-            if (forceEdlHls)
+            var forceSidecarHls = applySidecarEdits
+                && _corrDeliveryHints.Any(h => h.RequiresHls(itemIdN));
+            if (forceSidecarHls)
             {
-                ApplyEdlHlsDelivery(streamInfo, mediaSource, profile);
+                ApplySidecarHlsDelivery(streamInfo, mediaSource, profile);
                 allowVideoStreamCopy = false;
                 allowAudioStreamCopy = false;
                 _logger.LogInformation(
-                    "Forcing HLS for Edited EDL-cut source {MediaSourceId} item {ItemId}",
+                    "Forcing HLS for sidecar-cut source {MediaSourceId} item {ItemId}",
                     mediaSource.Id,
                     item.Id);
             }
@@ -308,7 +324,7 @@ public class MediaInfoHelper
                 || mediaSource.TranscodingContainer is not null
                 || profile.TranscodingProfiles.Any(i => i.Type == streamInfo.MediaType && i.Context == options.Context);
 
-            if (isEdlSource)
+            if (applySidecarEdits)
             {
                 mediaSource.SupportsDirectPlay = false;
                 mediaSource.SupportsDirectStream = false;
@@ -377,11 +393,11 @@ public class MediaInfoHelper
             mediaSource.DefaultAudioStreamIndex = streamInfo.AudioStreamIndex;
 
             _logger.LogInformation(
-                "Playback source {SourceName} Id={MediaSourceId} isEdl={IsEdl} forceHls={ForceHls} PlayMethod={PlayMethod} DirectPlay={DirectPlay} DirectStream={DirectStream} Transcode={Transcode} TranscodingUrl={TranscodingUrl}",
+                "Playback source {SourceName} Id={MediaSourceId} applySidecar={ApplySidecar} forceHls={ForceHls} PlayMethod={PlayMethod} DirectPlay={DirectPlay} DirectStream={DirectStream} Transcode={Transcode} TranscodingUrl={TranscodingUrl}",
                 mediaSource.Name,
                 mediaSource.Id,
-                isEdlSource,
-                forceEdlHls,
+                applySidecarEdits,
+                forceSidecarHls,
                 streamInfo.PlayMethod,
                 mediaSource.SupportsDirectPlay,
                 mediaSource.SupportsDirectStream,
@@ -391,10 +407,10 @@ public class MediaInfoHelper
         else
         {
             _logger.LogWarning(
-                "No stream info for source {SourceName} Id={MediaSourceId} isEdl={IsEdl}",
+                "No stream info for source {SourceName} Id={MediaSourceId} applySidecar={ApplySidecar}",
                 mediaSource.Name,
                 mediaSource.Id,
-                isEdlSource);
+                applySidecarEdits);
         }
 
         if (mediaSource.MediaAttachments is not null)
@@ -431,19 +447,7 @@ public class MediaInfoHelper
     public void SortMediaSources(PlaybackInfoResponse result, long? maxBitrate)
     {
         var originalList = result.MediaSources.ToList();
-        var preferEdl = _edlDeliveryHints.Any(h => h.PreferEdlAppliedMediaSources());
-
         result.MediaSources = result.MediaSources.OrderBy(i =>
-            {
-                // Prefer Edited (*_edl) ahead of Original when plugin config requests it.
-                if (preferEdl && _edlDeliveryHints.Any(h => h.IsEdlAppliedMediaSource(i.Id)))
-                {
-                    return 0;
-                }
-
-                return preferEdl ? 1 : 0;
-            })
-            .ThenBy(i =>
             {
                 // Nothing beats direct playing a file
                 if (i.SupportsDirectPlay && i.Protocol == MediaProtocol.File)
@@ -581,9 +585,9 @@ public class MediaInfoHelper
     }
 
     /// <summary>
-    /// Switches a stream to HLS so EDL cut playback can seek via existing segments.
+    /// Switches a stream to HLS so sidecar-cut playback can seek via existing segments.
     /// </summary>
-    private static void ApplyEdlHlsDelivery(StreamInfo streamInfo, MediaSourceInfo mediaSource, DeviceProfile profile)
+    private static void ApplySidecarHlsDelivery(StreamInfo streamInfo, MediaSourceInfo mediaSource, DeviceProfile profile)
     {
         var hlsProfile = profile.TranscodingProfiles.FirstOrDefault(p =>
                 p.Type == DlnaProfileType.Video && p.Protocol == MediaStreamProtocol.hls);
