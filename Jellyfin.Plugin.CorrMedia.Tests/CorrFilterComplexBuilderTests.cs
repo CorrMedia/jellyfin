@@ -21,15 +21,80 @@ public sealed class CorrFilterComplexBuilderTests
         var plan = new CorrEditPlan([], [new MuteTimeRange(10, 20)], [], 60);
         var graph = CorrFilterComplexBuilder.Build(plan, 60);
         Assert.NotNull(graph);
-        Assert.Equal("vout", graph.VideoMapLabel);
+        Assert.Equal("vmark", graph.VideoMapLabel);
         Assert.Equal("aout", graph.AudioMapLabel);
         Assert.Contains("[0:v]null[vout]", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Contains("concat=n=2:v=1:a=1[vout][aout]", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Contains("[vout]drawtext=text='Edited'", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Contains("enable='between(t,0,4)'", graph.FilterComplex, StringComparison.Ordinal);
         Assert.Contains("[0:a]anull[amuted]", graph.FilterComplex, StringComparison.Ordinal);
         Assert.Contains("trim=start=0:end=10", graph.FilterComplex, StringComparison.Ordinal);
         Assert.Contains("atrim=start=0:end=10", graph.FilterComplex, StringComparison.Ordinal);
         Assert.Contains("trim=start=20", graph.FilterComplex, StringComparison.Ordinal);
         Assert.DoesNotContain("end=60", graph.FilterComplex, StringComparison.Ordinal);
-        Assert.Contains("concat=n=2:v=1:a=1[vout][aout]", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Equal(0, graph.InputSeekSeconds);
+        var concatAt = graph.FilterComplex.IndexOf("concat=n=2:v=1:a=1[vout][aout]", StringComparison.Ordinal);
+        var badgeAt = graph.FilterComplex.IndexOf("[vout]drawtext=text='Edited'", StringComparison.Ordinal);
+        Assert.True(concatAt >= 0 && badgeAt > concatAt);
+    }
+
+    [Fact]
+    public void Build_EditedSeek_SetsInputSeekAndTruncatesTrim()
+    {
+        // Skip 15-20 on a 90s source: edited 42 → original 47.
+        // Demuxer -ss resets filter t≈0, so trims are shifted (47→0).
+        var plan = new CorrEditPlan([], [new MuteTimeRange(15, 20)], [], 90);
+        var graph = CorrFilterComplexBuilder.Build(plan, 90, editedStartSeconds: 42);
+        Assert.NotNull(graph);
+        Assert.Equal(47, graph.InputSeekSeconds, 3);
+        Assert.Contains("trim=start=0", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Contains("atrim=start=0", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.DoesNotContain("trim=start=47", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.DoesNotContain("trim=start=0:end=15", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.DoesNotContain("drawtext=", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Equal("vout", graph.VideoMapLabel);
+    }
+
+    [Fact]
+    public void Build_MuteOnlySeek_SetsInputSeekWithoutTrimConcat()
+    {
+        var plan = new CorrEditPlan(
+            [new MuteTimeRange(50, 55, ["FC"])],
+            [],
+            [])
+        {
+            SourceChannelLayout = "5.1",
+            SourceChannelCount = 6
+        };
+        var graph = CorrFilterComplexBuilder.Build(
+            plan,
+            90,
+            editedStartSeconds: 42,
+            inputChannelLayout: "5.1",
+            inputChannelCount: 6);
+        Assert.NotNull(graph);
+        Assert.Equal(42, graph.InputSeekSeconds, 3);
+        Assert.Contains("between(t,8,13)", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.DoesNotContain("concat=", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.DoesNotContain("trim=", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.DoesNotContain("atrim=", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.DoesNotContain("drawtext=", graph.FilterComplex, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_EditedSeek_ShiftsMuteAndEffectsOntoPostSeekClock()
+    {
+        var plan = new CorrEditPlan(
+            [new MuteTimeRange(50, 55)],
+            [new MuteTimeRange(15, 20)],
+            [new VideoEffect(VideoEffectKind.Blur, 51, 56, 1, 0.5, 0.5, 8, null)],
+            90);
+        var graph = CorrFilterComplexBuilder.Build(plan, 90, editedStartSeconds: 42);
+        Assert.NotNull(graph);
+        Assert.Equal(47, graph.InputSeekSeconds, 3);
+        Assert.Contains("between(t,3,8)", graph.FilterComplex, StringComparison.Ordinal); // mute 50-55 → 3-8
+        Assert.Contains("between(t,4,9)", graph.FilterComplex, StringComparison.Ordinal); // blur 51-56 → 4-9
+        Assert.DoesNotContain("drawtext=", graph.FilterComplex, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -42,7 +107,7 @@ public sealed class CorrFilterComplexBuilderTests
             60);
         var graph = CorrFilterComplexBuilder.Build(plan, 60);
         Assert.NotNull(graph);
-        Assert.Contains("volume='if(between(t,0,5),0,1)':eval=frame", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Contains("volume=0:enable='between(t,0,5)'", graph.FilterComplex, StringComparison.Ordinal);
         var volumeAt = graph.FilterComplex.IndexOf("volume=", StringComparison.Ordinal);
         var concatAt = graph.FilterComplex.IndexOf("concat=", StringComparison.Ordinal);
         Assert.True(volumeAt >= 0 && concatAt > volumeAt);
@@ -66,7 +131,8 @@ public sealed class CorrFilterComplexBuilderTests
         Assert.Contains("boxblur=", graph.FilterComplex, StringComparison.Ordinal);
         Assert.Contains("drawbox=0:0:iw:ih:black:t=fill", graph.FilterComplex, StringComparison.Ordinal);
         Assert.Contains("pixelize=w=24:h=24:mode=avg", graph.FilterComplex, StringComparison.Ordinal);
-        Assert.Equal("vx5", graph.VideoMapLabel);
+        Assert.Contains("[vx5]drawtext=text='Edited'", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Equal("vmark", graph.VideoMapLabel);
     }
 
     [Fact]
@@ -83,7 +149,7 @@ public sealed class CorrFilterComplexBuilderTests
         var graph = CorrFilterComplexBuilder.Build(plan, 60, inputChannelLayout: "5.1", inputChannelCount: 6);
         Assert.NotNull(graph);
         Assert.Contains("channelsplit=channel_layout=5.1", graph.FilterComplex, StringComparison.Ordinal);
-        Assert.Contains("[FC]volume='if(between(t,30,35),0,1)':eval=frame[FCm]", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Contains("[FC]volume=0:enable='between(t,30,35)'[FCm]", graph.FilterComplex, StringComparison.Ordinal);
         Assert.Contains("join=inputs=6:channel_layout=5.1[amuted]", graph.FilterComplex, StringComparison.Ordinal);
         Assert.Contains("[FL][FR][FCm][LFE][BL][BR]join=", graph.FilterComplex, StringComparison.Ordinal);
     }
@@ -132,7 +198,8 @@ public sealed class CorrFilterComplexBuilderTests
         var effectAt = graph.FilterComplex.IndexOf("overlay=0:0:enable=", StringComparison.Ordinal);
         var pgsAt = graph.FilterComplex.IndexOf("[0:3]format=yuva420p[psub]", StringComparison.Ordinal);
         Assert.True(effectAt >= 0 && pgsAt > effectAt);
-        Assert.Equal("vburn", graph.VideoMapLabel);
+        Assert.Contains("[vburn]drawtext=text='Edited'", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Equal("vmark", graph.VideoMapLabel);
     }
 
     [Fact]
@@ -181,7 +248,23 @@ public sealed class CorrFilterComplexBuilderTests
         var effectAt = graph.FilterComplex.IndexOf("overlay=0:0:enable=", StringComparison.Ordinal);
         var textAt = graph.FilterComplex.IndexOf("[vx0]subtitles=f='movie.ass'[vburn]", StringComparison.Ordinal);
         Assert.True(effectAt >= 0 && textAt > effectAt);
-        Assert.Equal("vburn", graph.VideoMapLabel);
+        Assert.Contains("[vburn]drawtext=text='Edited'", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Equal("vmark", graph.VideoMapLabel);
+    }
+
+    [Fact]
+    public void AppendTextSubtitleBurnIn_WithInputSeek_RestoresAbsolutePts()
+    {
+        var sb = new StringBuilder("[0:v]null[vout];");
+        var pad = CorrFilterComplexBuilder.AppendTextSubtitleBurnIn(
+            sb,
+            "vout",
+            "subtitles=f='movie.ass'",
+            inputSeekSeconds: 47);
+        Assert.Equal("vburn", pad);
+        Assert.Contains("[vout]setpts=PTS+47/TB[vburnabs]", sb.ToString(), StringComparison.Ordinal);
+        Assert.Contains("[vburnabs]subtitles=f='movie.ass'[vburnsub]", sb.ToString(), StringComparison.Ordinal);
+        Assert.Contains("[vburnsub]setpts=PTS-STARTPTS[vburn]", sb.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -189,6 +272,26 @@ public sealed class CorrFilterComplexBuilderTests
     {
         var sb = new StringBuilder("[0:v]null[vout];");
         var pad = CorrFilterComplexBuilder.AppendTextSubtitleBurnIn(sb, "vout", "subtitles=f='x';[malicious]");
+        Assert.Equal("vout", pad);
+        Assert.Equal("[0:v]null[vout];", sb.ToString());
+    }
+
+    [Fact]
+    public void AppendEditedBadge_FromStart_DrawsCornerText()
+    {
+        var sb = new StringBuilder("[0:v]null[vout];");
+        var pad = CorrFilterComplexBuilder.AppendEditedBadge(sb, "vout", fromEditedStart: true);
+        Assert.Equal("vmark", pad);
+        Assert.Contains("[vout]drawtext=text='Edited'", sb.ToString(), StringComparison.Ordinal);
+        Assert.Contains("enable='between(t,0,4)'", sb.ToString(), StringComparison.Ordinal);
+        Assert.Contains("x=w-tw-w*0.03:y=h*0.04", sb.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AppendEditedBadge_AfterSeek_IsNoOp()
+    {
+        var sb = new StringBuilder("[0:v]null[vout];");
+        var pad = CorrFilterComplexBuilder.AppendEditedBadge(sb, "vout", fromEditedStart: false);
         Assert.Equal("vout", pad);
         Assert.Equal("[0:v]null[vout];", sb.ToString());
     }

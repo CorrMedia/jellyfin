@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Jellyfin.Plugin.CorrMedia.Models;
@@ -16,6 +17,11 @@ namespace Jellyfin.Plugin.CorrMedia.Services;
 /// </summary>
 internal static class CorrFilterComplexBuilder
 {
+    /// <summary>
+    /// Seconds the start-of-stream "Edited" badge stays on the delivered clock.
+    /// </summary>
+    internal const double EditedBadgeDurationSeconds = 4;
+
     /// <summary>
     /// Builds a session edit graph, or null when <see cref="CorrEditPlan.NeedsEditGraph"/> is false.
     /// </summary>
@@ -57,9 +63,16 @@ internal static class CorrFilterComplexBuilder
         }
 
         IReadOnlyList<(double Start, double End)> keep;
+        double inputSeekSeconds = 0;
         if (plan.HasCuts)
         {
             var fullKeep = CorrTimeline.BuildKeepRanges(plan.SkipRanges, durationSeconds);
+            if (editedStartSeconds > 0.001
+                && CorrTimeline.TryMapEditedToOriginal(editedStartSeconds, fullKeep, out var originalSeek))
+            {
+                inputSeekSeconds = originalSeek;
+            }
+
             keep = editedStartSeconds > 0.001
                 ? CorrTimeline.TruncateKeepRangesForEditedStart(fullKeep, editedStartSeconds)
                 : fullKeep;
@@ -71,9 +84,13 @@ internal static class CorrFilterComplexBuilder
                 keep = CorrTimeline.TailKeepRange(fullKeep);
             }
         }
-        else if (editedStartSeconds > 0.001 && durationSeconds > 0)
+        else if (editedStartSeconds > 0.001)
         {
-            keep = CorrTimeline.TruncateKeepRangesForEditedStart([(0, durationSeconds)], editedStartSeconds);
+            // Mute/effects-only (no cuts): demuxer -ss is enough. Do not invent a
+            // trim/concat keep range — that resets PTS via setpts and makes HLS
+            // restart-thrash when the client requests a prior segment after seek.
+            inputSeekSeconds = editedStartSeconds;
+            keep = [];
         }
         else
         {
@@ -85,32 +102,46 @@ internal static class CorrFilterComplexBuilder
             return null;
         }
 
+        // Demuxer -ss resets filter t near 0; shift original-absolute times into post-seek clock.
+        var mutes = plan.MuteRanges;
+        var effects = plan.VideoEffects;
+        if (inputSeekSeconds > 0.001)
+        {
+            mutes = ShiftMuteRanges(mutes, inputSeekSeconds);
+            effects = ShiftVideoEffects(effects, inputSeekSeconds);
+            keep = ShiftKeepRanges(keep, inputSeekSeconds);
+        }
+
         var sb = new StringBuilder();
 
-        // 1) Duration-preserving effects on the original timeline (before cuts).
-        var videoPad = AppendVideoEffects(sb, plan.VideoEffects);
+        // 1) Duration-preserving effects on the (possibly seek-relative) timeline, then cuts.
+        var videoPad = AppendVideoEffects(sb, effects);
         videoPad = AppendGraphicalSubtitleBurnIn(
             sb,
             videoPad,
             burnInGraphicalSubtitleStreamIndex,
             burnInGraphicalSubtitleFilters,
             burnInGraphicalSubtitleInputIndex);
-        videoPad = AppendTextSubtitleBurnIn(sb, videoPad, burnInTextSubtitleFilter);
+        videoPad = AppendTextSubtitleBurnIn(sb, videoPad, burnInTextSubtitleFilter, inputSeekSeconds);
         var audioPad = AppendAudioEdits(
             sb,
-            plan.MuteRanges,
+            mutes,
             inputChannelLayout,
             inputChannelCount,
             outputAudioChannels,
             stereoDownmixFilter);
 
+        var showBadge = editedStartSeconds <= 0.001;
+
         if (keep.Count == 0)
         {
+            videoPad = AppendEditedBadge(sb, videoPad, showBadge);
             return new SessionMediaEditGraph
             {
                 FilterComplex = sb.ToString().TrimEnd(';'),
                 VideoMapLabel = videoPad,
-                AudioMapLabel = audioPad
+                AudioMapLabel = audioPad,
+                InputSeekSeconds = inputSeekSeconds
             };
         }
 
@@ -156,12 +187,14 @@ internal static class CorrFilterComplexBuilder
         }
 
         sb.Append(CultureInfo.InvariantCulture, $"concat=n={keep.Count}:v=1:a=1[vout][aout]");
+        var videoOut = AppendEditedBadge(sb, "vout", showBadge);
 
         return new SessionMediaEditGraph
         {
-            FilterComplex = sb.ToString(),
-            VideoMapLabel = "vout",
-            AudioMapLabel = "aout"
+            FilterComplex = sb.ToString().TrimEnd(';'),
+            VideoMapLabel = videoOut,
+            AudioMapLabel = "aout",
+            InputSeekSeconds = inputSeekSeconds
         };
     }
 
@@ -323,15 +356,20 @@ internal static class CorrFilterComplexBuilder
     }
 
     /// <summary>
-    /// Burns a text/ASS subtitle file onto the original-timeline video pad via
-    /// <c>subtitles=</c>. Must run after sidecar video effects (and any graphical overlay)
-    /// and before keep-range trims.
+    /// Burns a text/ASS subtitle file onto the video pad via <c>subtitles=</c>.
+    /// When <paramref name="inputSeekSeconds"/> &gt; 0, temporarily restores absolute PTS
+    /// so cue times in the subtitle file still line up after demuxer <c>-ss</c>.
     /// </summary>
     /// <param name="sb">Filter graph being built.</param>
     /// <param name="videoPad">Current video pad name without brackets.</param>
     /// <param name="filter">Complete <c>subtitles=...</c> filter, or null to skip.</param>
+    /// <param name="inputSeekSeconds">Demuxer seek on the original timeline.</param>
     /// <returns>Video pad after burn-in, or <paramref name="videoPad"/> when skipped.</returns>
-    internal static string AppendTextSubtitleBurnIn(StringBuilder sb, string videoPad, string? filter)
+    internal static string AppendTextSubtitleBurnIn(
+        StringBuilder sb,
+        string videoPad,
+        string? filter,
+        double inputSeekSeconds = 0)
     {
         ArgumentNullException.ThrowIfNull(sb);
         var sanitized = SanitizeTextSubtitleFilter(filter);
@@ -341,8 +379,179 @@ internal static class CorrFilterComplexBuilder
         }
 
         var outPad = UniqueBurnInPad(videoPad);
-        sb.Append(CultureInfo.InvariantCulture, $"[{videoPad}]{sanitized}[{outPad}];");
+        if (inputSeekSeconds > 0.001)
+        {
+            var absPad = outPad + "abs";
+            var subPad = outPad + "sub";
+            var seek = F(inputSeekSeconds);
+            sb.Append(CultureInfo.InvariantCulture, $"[{videoPad}]setpts=PTS+{seek}/TB[{absPad}];");
+            sb.Append(CultureInfo.InvariantCulture, $"[{absPad}]{sanitized}[{subPad}];");
+            sb.Append(CultureInfo.InvariantCulture, $"[{subPad}]setpts=PTS-STARTPTS[{outPad}];");
+        }
+        else
+        {
+            sb.Append(CultureInfo.InvariantCulture, $"[{videoPad}]{sanitized}[{outPad}];");
+        }
+
         return outPad;
+    }
+
+    /// <summary>
+    /// Burns a corner "Edited" badge onto the delivered video pad for the first
+    /// <see cref="EditedBadgeDurationSeconds"/> of a play-from-start encode.
+    /// Seek / HLS restarts omit it so it does not reappear mid-title.
+    /// </summary>
+    /// <param name="sb">Filter graph being built.</param>
+    /// <param name="videoPad">Current video pad name without brackets.</param>
+    /// <param name="fromEditedStart">True when the client started at edited t≈0.</param>
+    /// <returns>Video pad after the badge, or <paramref name="videoPad"/> when skipped.</returns>
+    internal static string AppendEditedBadge(StringBuilder sb, string videoPad, bool fromEditedStart)
+    {
+        ArgumentNullException.ThrowIfNull(sb);
+        if (!fromEditedStart || string.IsNullOrEmpty(videoPad))
+        {
+            return videoPad;
+        }
+
+        var outPad = string.Equals(videoPad, "vmark", StringComparison.Ordinal) ? "vmark2" : "vmark";
+        var end = F(EditedBadgeDurationSeconds);
+        var font = GetDrawtextFontOption();
+        if (sb.Length > 0 && sb[^1] != ';')
+        {
+            sb.Append(';');
+        }
+
+        sb.Append(CultureInfo.InvariantCulture, $"[{videoPad}]drawtext=text='Edited':x=w-tw-w*0.03:y=h*0.04:fontsize=h/28:fontcolor=white@0.92:box=1:boxcolor=black@0.55:boxborderw=12:enable='between(t,0,{end})'{font}[{outPad}];");
+        return outPad;
+    }
+
+    /// <summary>
+    /// Resolves <c>fontfile</c> when a system TTF exists; otherwise fontconfig <c>Sans</c>.
+    /// </summary>
+    /// <returns>A <c>drawtext</c> font option including the leading colon.</returns>
+    private static string GetDrawtextFontOption()
+    {
+        foreach (var candidate in EnumerateDrawtextFontCandidates())
+        {
+            if (!string.IsNullOrEmpty(candidate) && File.Exists(candidate))
+            {
+                return ":fontfile='" + EscapeDrawtextPath(candidate) + "'";
+            }
+        }
+
+        return ":font=Sans";
+    }
+
+    /// <summary>
+    /// Common Linux and Windows sans-serif files for <c>drawtext</c>.
+    /// </summary>
+    /// <returns>Candidate font paths, first existing wins.</returns>
+    private static IEnumerable<string> EnumerateDrawtextFontCandidates()
+    {
+        yield return "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+        yield return "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf";
+        yield return "/usr/share/fonts/truetype/freefont/FreeSans.ttf";
+
+        var fontsDir = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
+        if (!string.IsNullOrEmpty(fontsDir))
+        {
+            yield return Path.Combine(fontsDir, "segoeui.ttf");
+            yield return Path.Combine(fontsDir, "arial.ttf");
+        }
+    }
+
+    /// <summary>
+    /// Escapes a filesystem path for an FFmpeg <c>drawtext</c> <c>fontfile</c> value.
+    /// </summary>
+    /// <param name="path">Absolute font path.</param>
+    /// <returns>Filter-safe path (forward slashes, escaped colon and quote).</returns>
+    private static string EscapeDrawtextPath(string path)
+        => path.Replace('\\', '/')
+            .Replace(":", "\\:", StringComparison.Ordinal)
+            .Replace("'", "\\'", StringComparison.Ordinal);
+
+    private static List<MuteTimeRange> ShiftMuteRanges(
+        IReadOnlyList<MuteTimeRange> ranges,
+        double seekSeconds)
+    {
+        var result = new List<MuteTimeRange>();
+        foreach (var r in ranges)
+        {
+            var start = r.StartTime - seekSeconds;
+            var end = r.EndTime - seekSeconds;
+            if (end <= 0.001)
+            {
+                continue;
+            }
+
+            if (start < 0)
+            {
+                start = 0;
+            }
+
+            if (end > start + 0.001)
+            {
+                result.Add(new MuteTimeRange(start, end, r.Channels, r.Kind, r.Gain, r.Frequency, r.Id));
+            }
+        }
+
+        return result;
+    }
+
+    private static List<VideoEffect> ShiftVideoEffects(
+        IReadOnlyList<VideoEffect> effects,
+        double seekSeconds)
+    {
+        var result = new List<VideoEffect>();
+        foreach (var e in effects)
+        {
+            var start = e.StartTime - seekSeconds;
+            var end = e.EndTime - seekSeconds;
+            if (end <= 0.001)
+            {
+                continue;
+            }
+
+            if (start < 0)
+            {
+                start = 0;
+            }
+
+            if (end > start + 0.001)
+            {
+                result.Add(e with { StartTime = start, EndTime = end });
+            }
+        }
+
+        return result;
+    }
+
+    private static List<(double Start, double End)> ShiftKeepRanges(
+        IReadOnlyList<(double Start, double End)> keep,
+        double seekSeconds)
+    {
+        var result = new List<(double, double)>();
+        foreach (var (start, end) in keep)
+        {
+            var s = start - seekSeconds;
+            var e = end - seekSeconds;
+            if (e <= 0.001)
+            {
+                continue;
+            }
+
+            if (s < 0)
+            {
+                s = 0;
+            }
+
+            if (e > s + 0.001)
+            {
+                result.Add((s, e));
+            }
+        }
+
+        return result;
     }
 
     private static string UniqueBurnInPad(string videoPad)

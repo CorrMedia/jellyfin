@@ -127,6 +127,7 @@ namespace Emby.Server.Implementations.Dto
         private readonly IChapterManager _chapterManager;
         private readonly IEnumerable<ISessionCorrDeliveryHint> _corrDeliveryHints;
         private readonly ISessionTrickplayRewriter _trickplayRewriter;
+        private readonly ISessionChapterRewriter _chapterRewriter;
 
         public DtoService(
             ILogger<DtoService> logger,
@@ -141,7 +142,8 @@ namespace Emby.Server.Implementations.Dto
             ITrickplayManager trickplayManager,
             IChapterManager chapterManager,
             IEnumerable<ISessionCorrDeliveryHint> corrDeliveryHints = null,
-            ISessionTrickplayRewriter trickplayRewriter = null)
+            ISessionTrickplayRewriter trickplayRewriter = null,
+            ISessionChapterRewriter chapterRewriter = null)
         {
             _logger = logger;
             _libraryManager = libraryManager;
@@ -156,6 +158,7 @@ namespace Emby.Server.Implementations.Dto
             _chapterManager = chapterManager;
             _corrDeliveryHints = corrDeliveryHints ?? Array.Empty<ISessionCorrDeliveryHint>();
             _trickplayRewriter = trickplayRewriter ?? new NoOpSessionTrickplayRewriter();
+            _chapterRewriter = chapterRewriter ?? new NoOpSessionChapterRewriter();
         }
 
         private ILiveTvManager LivetvManager => _livetvManagerFactory.Value;
@@ -1171,7 +1174,10 @@ namespace Emby.Server.Implementations.Dto
 
                 if (options.ContainsField(ItemFields.Chapters))
                 {
-                    dto.Chapters = _chapterManager.GetChapters(item.Id).ToList();
+                    var itemIdN = item.Id.ToString("N", CultureInfo.InvariantCulture);
+                    dto.Chapters = _chapterRewriter.RewriteChapters(
+                        itemIdN,
+                        _chapterManager.GetChapters(item.Id)).ToList();
                 }
 
                 if (options.ContainsField(ItemFields.Trickplay))

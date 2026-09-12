@@ -75,11 +75,12 @@ public sealed class SessionMediaEditGraphProvider : ISessionMediaEditGraphProvid
         if (graph is not null)
         {
             _logger.LogInformation(
-                "Sidecar edit graph PlaySessionId={PlaySessionId} originalDuration={Duration} mediaSourceDuration={SourceDuration} editedStart={Start} layout={Layout} channels={Channels}->{OutChannels} selectiveMute={Selective} pgsBurnIn={PgsInput}:{PgsStream} textBurnIn={Text} complexLength={Len}",
+                "Sidecar edit graph PlaySessionId={PlaySessionId} originalDuration={Duration} mediaSourceDuration={SourceDuration} editedStart={Start} inputSeek={InputSeek} layout={Layout} channels={Channels}->{OutChannels} selectiveMute={Selective} pgsBurnIn={PgsInput}:{PgsStream} textBurnIn={Text} complexLength={Len}",
                 playSessionId ?? "(null)",
                 originalDuration,
                 context.DurationSeconds,
                 context.StartTimeSeconds,
+                graph.InputSeekSeconds,
                 inputLayout ?? "(null)",
                 inputChannels,
                 outputChannels,

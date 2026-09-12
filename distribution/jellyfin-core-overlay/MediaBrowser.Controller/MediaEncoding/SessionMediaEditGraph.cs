@@ -21,4 +21,10 @@ public sealed class SessionMediaEditGraph
     /// Gets the labeled audio output pad name (e.g. aout), or null if video-only.
     /// </summary>
     public string? AudioMapLabel { get; init; }
+
+    /// <summary>
+    /// Gets demuxer <c>-ss</c> on the original timeline for mid-stream seek.
+    /// Zero means no input seek (play from the start of the source).
+    /// </summary>
+    public double InputSeekSeconds { get; init; }
 }

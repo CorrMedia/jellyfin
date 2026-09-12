@@ -521,6 +521,7 @@ namespace Emby.Server.Implementations
             serviceCollection.AddSingleton<ISessionCorrDeliveryHint, NoOpSessionCorrDeliveryHint>();
             serviceCollection.AddSingleton<ISessionSubtitleCueRewriter, NoOpSessionSubtitleCueRewriter>();
             serviceCollection.AddSingleton<ISessionTrickplayRewriter, NoOpSessionTrickplayRewriter>();
+            serviceCollection.AddSingleton<ISessionChapterRewriter, NoOpSessionChapterRewriter>();
             serviceCollection.AddSingleton<EncodingHelper>();
             serviceCollection.AddSingleton<IPathManager, PathManager>();
             serviceCollection.AddSingleton<IExternalDataManager, ExternalDataManager>();

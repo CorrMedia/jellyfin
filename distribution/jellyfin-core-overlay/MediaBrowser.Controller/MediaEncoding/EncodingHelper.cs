@@ -6544,6 +6544,15 @@ namespace MediaBrowser.Controller.MediaEncoding
 
                 if (!string.IsNullOrEmpty(decoder))
                 {
+                    // CPU filter_complex needs memory frames. Allow HW decode only when we can
+                    // hwdownload a known surface (or FFmpeg already copy-backs).
+                    GetPlaySessionAndDeviceId(state, out var playSessionId, out var deviceId);
+                    if (HasSessionEditGraphForRequest(playSessionId ?? string.Empty, deviceId ?? string.Empty)
+                        && !SessionEditGraphHwBridge.CanUseHardwareDecoderForEditGraph(decoder))
+                    {
+                        return null;
+                    }
+
                     return decoder;
                 }
             }
@@ -7687,15 +7696,17 @@ namespace MediaBrowser.Controller.MediaEncoding
             string inputModifier;
             if (editGraph is not null)
             {
-                // Graph trims already start at the seek point — strip input -ss so mute/cut times stay on the original timeline.
+                // Emit demuxer -ss at the original-mapped seek; filter times stay absolute.
                 var savedStart = state.BaseRequest?.StartTimeTicks;
                 if (state.BaseRequest is not null)
                 {
-                    state.BaseRequest.StartTimeTicks = 0;
+                    state.BaseRequest.StartTimeTicks = editGraph.InputSeekSeconds > 0.001
+                        ? TimeSpan.FromSeconds(editGraph.InputSeekSeconds).Ticks
+                        : 0;
                 }
 
                 inputModifier = GetInputModifier(state, encodingOptions, null);
-                // Second -i (external graphical/audio) must also start at original t=0.
+                // Second -i (external graphical/audio) uses the same original-timeline -ss.
                 var inputArgument = GetInputArgument(state, encodingOptions, null);
                 if (state.BaseRequest is not null)
                 {
@@ -7755,11 +7766,20 @@ namespace MediaBrowser.Controller.MediaEncoding
                 audioCodec = "aac";
             }
 
+            var videoDecoder = GetHardwareVideoDecoder(state, encodingOptions);
+            var withDownload = SessionEditGraphHwBridge.PrependDecoderBridge(
+                editGraph.FilterComplex,
+                videoDecoder);
+            var (filterComplex, videoPad) = SessionEditGraphHwBridge.AppendEncoderBridge(
+                withDownload,
+                editGraph.VideoMapLabel,
+                videoCodec);
+
             var threads = GetNumberOfThreads(state, encodingOptions, videoCodec);
             var mapArgs = string.Format(
                 CultureInfo.InvariantCulture,
                 "-map \"[{0}]\"",
-                editGraph.VideoMapLabel);
+                videoPad);
             if (!string.IsNullOrEmpty(editGraph.AudioMapLabel))
             {
                 mapArgs += string.Format(
@@ -7768,10 +7788,21 @@ namespace MediaBrowser.Controller.MediaEncoding
                     editGraph.AudioMapLabel);
             }
 
-            // Encode from graph pads; mute lives in filter_complex — do not append stock -af mute.
+            // Encode from graph pads; mute lives in filter_complex — do not append stock -vf/-af.
             var videoArgs = "-codec:v:0 " + videoCodec
-                + string.Format(CultureInfo.InvariantCulture, " -force_key_frames \"expr:gte(t,n_forced*{0})\"", 5)
-                + GetOutputFFlags(state);
+                + string.Format(CultureInfo.InvariantCulture, " -force_key_frames \"expr:gte(t,n_forced*{0})\"", 5);
+            var qualityParam = GetVideoQualityParam(state, videoCodec, encodingOptions, defaultPreset);
+            if (!string.IsNullOrEmpty(qualityParam))
+            {
+                videoArgs += " " + qualityParam.Trim();
+            }
+
+            if (!string.IsNullOrEmpty(state.OutputVideoSync))
+            {
+                videoArgs += GetVideoSyncOption(state.OutputVideoSync, _mediaEncoder.EncoderVersion);
+            }
+
+            videoArgs += GetOutputFFlags(state);
             var audioArgs = "-codec:a:0 " + audioCodec;
             var bitrate = state.OutputAudioBitrate;
             if (bitrate.HasValue)
@@ -7784,7 +7815,7 @@ namespace MediaBrowser.Controller.MediaEncoding
                 "{0} {1} -filter_complex \"{2}\" {3} -map_metadata -1 -map_chapters -1 -threads {4} {5} {6}{7}{8} -y \"{9}\"",
                 inputModifier,
                 inputArgument,
-                editGraph.FilterComplex,
+                filterComplex,
                 mapArgs,
                 threads,
                 videoArgs,
@@ -7830,7 +7861,7 @@ namespace MediaBrowser.Controller.MediaEncoding
                 ? TimeSpan.FromTicks(state.RunTimeTicks.Value).TotalSeconds
                 : 0;
             // Client seek is on the delivered (edited) timeline; graph trims keep-ranges accordingly.
-            // Input -ss must stay 0 — trim timestamps are on the original timeline.
+            // Input -ss uses InputSeekSeconds (original-mapped) from the graph, not edited StartTimeTicks.
             // DurationSeconds is the media-source runtime (already shortened when cuts exist).
             // The graph provider restores original duration before computing keep ranges.
             var startSeconds = state.BaseRequest?.StartTimeTicks is long ticks && ticks > 0
@@ -8006,26 +8037,49 @@ namespace MediaBrowser.Controller.MediaEncoding
         /// Map args and optional -filter_complex prefix for HLS when an edit graph is present.
         /// </summary>
         /// <param name="state">Encoding job state.</param>
+        /// <param name="encodingOptions">Encoding options (encoder / hwupload wrap).</param>
         /// <param name="filterComplexArg">Receives -filter_complex "..." when successful.</param>
         /// <param name="mapArgs">Receives -map "[vout]" -map "[aout]" when successful.</param>
+        /// <param name="inputSeekSeconds">Demuxer -ss on the original timeline (0 = none).</param>
         /// <returns>True when an edit graph was applied.</returns>
-        public bool TryGetSessionEditGraphMapArgs(EncodingJobInfo state, out string filterComplexArg, out string mapArgs)
+        public bool TryGetSessionEditGraphMapArgs(
+            EncodingJobInfo state,
+            EncodingOptions encodingOptions,
+            out string filterComplexArg,
+            out string mapArgs,
+            out double inputSeekSeconds)
         {
             filterComplexArg = string.Empty;
             mapArgs = string.Empty;
+            inputSeekSeconds = 0;
             var graph = TryGetSessionEditGraph(state);
             if (graph is null)
             {
                 return false;
             }
 
-            filterComplexArg = "-filter_complex \"" + graph.FilterComplex + "\"";
-            mapArgs = string.Format(CultureInfo.InvariantCulture, "-map \"[{0}]\"", graph.VideoMapLabel);
+            var videoCodec = GetVideoEncoder(state, encodingOptions);
+            if (IsCopyCodec(videoCodec))
+            {
+                videoCodec = "libx264";
+            }
+
+            var videoDecoder = GetHardwareVideoDecoder(state, encodingOptions);
+            var withDownload = SessionEditGraphHwBridge.PrependDecoderBridge(
+                graph.FilterComplex,
+                videoDecoder);
+            var (filterComplex, videoPad) = SessionEditGraphHwBridge.AppendEncoderBridge(
+                withDownload,
+                graph.VideoMapLabel,
+                videoCodec);
+            filterComplexArg = "-filter_complex \"" + filterComplex + "\"";
+            mapArgs = string.Format(CultureInfo.InvariantCulture, "-map \"[{0}]\"", videoPad);
             if (!string.IsNullOrEmpty(graph.AudioMapLabel))
             {
                 mapArgs += string.Format(CultureInfo.InvariantCulture, " -map \"[{0}]\"", graph.AudioMapLabel);
             }
 
+            inputSeekSeconds = graph.InputSeekSeconds;
             return true;
         }
 

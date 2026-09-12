@@ -10,7 +10,7 @@ This file tracks that remap work. Product/phase context: `ROADMAP.md`. Other pla
 
 ## Current encode
 
-The edit graph maps only `[vout]` and `[aout]`, then `-map_metadata -1 -map_chapters -1`.
+The edit graph maps only `[vout]` and `[aout]`, then `-map_metadata -1 -map_chapters -1` (container chapters stay out of the mux; API chapters are remapped separately).
 
 - Burn-in is in `CorrFilterComplexBuilder` for text/ASS (`subtitles=`) and graphical (internal PGS/DVD in the MKV, or external `.sup` / VobSub via a second `-i`). Overlay happens on the original timeline after sidecar video effects and before keep-range cuts, when the client burns that stream in.
 - HLS maps the same two pads (`TryGetSessionEditGraphMapArgs`).
@@ -69,10 +69,13 @@ Keep-range mapping (`TryMapEditedToOriginal`) is used — not linear scaling —
 
 | | |
 |--|--|
-| **Status** | Dropped on purpose (`-map_chapters -1`) |
-| **Difficulty** | Same remap as text cues, plus overlay if we re-inject |
+| **Status** | Done (DTO remap) |
+| **Difficulty** | Same remap as text cues |
+| **Why** | Chapter markers / next-prev seek on the edited clock |
 
-Same clock as subs. Optional after (1) if we want chapter markers on the edited item.
+`ISessionChapterRewriter` remaps `BaseItemDto.Chapters` via keep-range math: drop markers inside skips, shift survivors with `TryMapOriginalToEdited`, preserve Name/image fields. Encode still uses `-map_chapters -1` (clients read the DTO, not the mux).
+
+**Done when:** chapter list and chapter seek match the shortened timeline; apply-edits off still uses original chapter ticks.
 
 ---
 
@@ -81,9 +84,9 @@ Same clock as subs. Optional after (1) if we want chapter markers on the edited 
 1. VTT/SRT rewrite for HLS when this user has skips. **Done.**
 2. Burn-in into the original-timeline overlay stage (only if Encode delivery matters). **Done** (text/ASS, internal and external graphical).
 3. Trickplay remap (keep-range mapping, reuse original tiles). **Done.**
-4. Chapters if anyone misses them.
+4. Chapters on the cut timeline (DTO remap). **Done.**
 
-Seek on the cut timeline (`ROADMAP.md` Phase 3 leftover) is a **different** job: FFmpeg restart / segment index, not cue rewrite. A full cached HLS tree is also different (`TODO.md` / Phase 5 cache) and is not a shortcut for (1)–(3).
+Seek on the cut timeline (`ROADMAP.md` Phase 3 leftover) is a **different** job: FFmpeg restart / segment index, not cue rewrite. A full cached HLS tree is also different (`TODO.md` / Phase 5 cache) and is not a shortcut for (1)–(4).
 
 ---
 
@@ -92,13 +95,14 @@ Seek on the cut timeline (`ROADMAP.md` Phase 3 leftover) is a **different** job:
 - Rewrite subs on the fly vs cache a sidecar VTT next to media / in plugin data. **Chose on-the-fly** (workstream 1).
 - Trickplay: hide skipped content vs “wrong frame, including skips”. **Chose hide** via keep-range mapping (workstream 3).
 - Burn-in: text/ASS, or only PGS in the file? **Text/ASS and graphical (internal + external) burn in with the edit graph.**
-- Do we re-inject chapters at all? **No — still dropped (`-map_chapters -1`).**
+- Do we re-inject chapters at all? **DTO remap yes; FFmpeg mux still `-map_chapters -1`.**
 
 ---
 
 ## Out of scope here
 
-- Restoring DirectPlay while apply-edits is on.
-- Hardware encode of the graph.
+- Hardware **GPU filters** for zoom/overlay (`overlay_cuda` / `vpp_qsv` / `scale_vaapi`). This slice is HW decode + `hwdownload` + CPU graph + HW encode.
+- HDR / 10-bit tonemap on the graph path (download flattens to 8-bit `yuv420p`/`nv12`).
 - Transcode cache / complete HLS tree for faster seek.
 - MediaSegments for apply-edits **off** (that is original-timeline client skip UI).
+- Restoring DirectPlay while apply-edits is on.

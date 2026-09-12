@@ -18,7 +18,7 @@ From this repo root:
 .\scripts\apply-core-overlay.ps1 -JellyfinSourcePath C:\path\to\jellyfin
 ```
 
-You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionCorrDeliveryHint`, `ISessionSubtitleCueRewriter`, `ISessionTrickplayRewriter`, `ITrickplayCellCropper`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `SubtitleController`, `TrickplayController`, `MediaInfoHelper`, `DtoService`, `MediaSourceManager`, `UserLibraryController`, `ApplicationHost`, `CoreAppHost`, and `PackageController`.
+You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionCorrDeliveryHint`, `ISessionSubtitleCueRewriter`, `ISessionTrickplayRewriter`, `ITrickplayCellCropper`, `SessionEditGraphHwBridge`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `SubtitleController`, `TrickplayController`, `MediaInfoHelper`, `DtoService`, `MediaSourceManager`, `UserLibraryController`, `ApplicationHost`, `CoreAppHost`, and `PackageController`.
 
 ### 2. Build Jellyfin
 
@@ -79,6 +79,12 @@ Enable CorrMedia. Place `{stem}.corr.json` next to media. Times are on the origi
 ```
 
 Open **http://localhost:18096**. Library media lives in `docker\jellyfin\media`. The test clip sidecar is bind-mounted from repo-root `test-movie.corr.json`, so editing that file is what Edited playback reads.
+
+Edit-graph jobs are HW decode (when known) + `hwdownload` + CPU filters + `GetVideoEncoder`. To use NVENC locally, set Dashboard → Playback → hardware acceleration to NVIDIA NVENC, then start with GPU passthrough:
+
+```powershell
+docker compose -f docker-compose.patched.yml -f docker-compose.patched.nvidia.yml up -d
+```
 
 ## Rollback
 

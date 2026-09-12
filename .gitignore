@@ -10,4 +10,5 @@ docker/jellyfin/plugins/
 jellyfin-source/
 .docker-client/
 debug-*.log
-test-movie.mkv
+*.mkv
+test2.corr.json

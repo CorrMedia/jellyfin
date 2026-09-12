@@ -24,6 +24,7 @@ namespace Jellyfin.Plugin.CorrMedia
             serviceCollection.AddSingleton<MediaBrowser.Controller.MediaEncoding.ISessionCorrDeliveryHint, SessionCorrDeliveryHint>();
             serviceCollection.AddSingleton<MediaBrowser.Controller.MediaEncoding.ISessionSubtitleCueRewriter, SessionSubtitleCueRewriter>();
             serviceCollection.AddSingleton<MediaBrowser.Controller.MediaEncoding.ISessionTrickplayRewriter, SessionTrickplayRewriter>();
+            serviceCollection.AddSingleton<MediaBrowser.Controller.MediaEncoding.ISessionChapterRewriter, SessionChapterRewriter>();
 #endif
         }
     }

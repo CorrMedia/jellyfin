@@ -12,36 +12,51 @@ public sealed class AudioEditExpressionsTests
     }
 
     [Fact]
-    public void BuildFilter_MuteOnly_UsesVolumeEvalFrame()
+    public void BuildFilter_MuteOnly_UsesFlatEnable()
     {
         var filter = AudioEditExpressions.BuildFilter([new MuteTimeRange(10, 20)]);
-        Assert.StartsWith("volume='", filter, StringComparison.Ordinal);
-        Assert.Contains("if(between(t,10,20),0,1)", filter, StringComparison.Ordinal);
-        Assert.EndsWith("':eval=frame", filter);
+        Assert.Equal("volume=0:enable='between(t,10,20)'", filter);
+        Assert.DoesNotContain("if(between", filter, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void BuildFilter_VolumeUsesGain()
+    public void BuildFilter_VolumeUsesProduct()
     {
         var range = new MuteTimeRange(1, 2, Kind: AudioEditKind.Volume, Gain: 0.25);
-        var expr = AudioEditExpressions.BuildSourceGainExpression([range]);
-        Assert.Equal("if(between(t,1,2),0.25,1)", expr);
+        var filter = AudioEditExpressions.BuildFilter([range]);
+        Assert.Equal("volume='(1+(0.25-1)*between(t,1,2))':eval=frame", filter);
+        Assert.Equal("(1+(0.25-1)*between(t,1,2))", AudioEditExpressions.BuildSourceGainExpression([range]));
     }
 
     [Fact]
-    public void BuildFilter_Beep_UsesAevalAndTone()
+    public void BuildFilter_MuteAndVolume_ChainsProductThenEnable()
+    {
+        var ranges = new MuteTimeRange[]
+        {
+            new(0, 10, Kind: AudioEditKind.Volume, Gain: 0.5),
+            new(4, 8)
+        };
+        var filter = AudioEditExpressions.BuildFilter(ranges);
+        Assert.Equal(
+            "volume='(1+(0.5-1)*between(t,0,10))':eval=frame,volume=0:enable='between(t,4,8)'",
+            filter);
+    }
+
+    [Fact]
+    public void BuildFilter_Beep_UsesFlatAeval()
     {
         var range = new MuteTimeRange(5, 6, Kind: AudioEditKind.Beep, Gain: 0.3, Frequency: 1000);
         var filter = AudioEditExpressions.BuildFilter([range]);
         Assert.StartsWith("aeval='", filter, StringComparison.Ordinal);
         Assert.Contains("val(ch)*", filter, StringComparison.Ordinal);
-        Assert.Contains("0.3*sin(2*PI*1000*t)", filter, StringComparison.Ordinal);
-        Assert.Contains("if(between(t,5,6),0,", filter, StringComparison.Ordinal);
+        Assert.Contains("0.3*sin(2*PI*1000*t)*between(t,5,6)", filter, StringComparison.Ordinal);
+        Assert.Contains("*max(0\\,1-(between(t,5,6)))", filter, StringComparison.Ordinal);
+        Assert.DoesNotContain("if(between", filter, StringComparison.Ordinal);
         Assert.EndsWith("':c=same", filter);
     }
 
     [Fact]
-    public void BuildSourceGainExpression_BeepWinsOverMuteOverVolume()
+    public void BuildSourceGainExpression_BeepAndMuteZeroSource()
     {
         var ranges = new MuteTimeRange[]
         {
@@ -50,8 +65,23 @@ public sealed class AudioEditExpressionsTests
             new(5, 6, Kind: AudioEditKind.Beep, Gain: 0.3, Frequency: 440)
         };
         var expr = AudioEditExpressions.BuildSourceGainExpression(ranges);
-        Assert.StartsWith("if(between(t,5,6),0,", expr, StringComparison.Ordinal);
-        Assert.Contains("if(between(t,4,8),0,", expr, StringComparison.Ordinal);
-        Assert.Contains("if(between(t,0,10),0.5,1)", expr, StringComparison.Ordinal);
+        Assert.StartsWith("(1+(0.5-1)*between(t,0,10))*max(0\\,1-(", expr, StringComparison.Ordinal);
+        Assert.Contains("between(t,4,8)", expr, StringComparison.Ordinal);
+        Assert.Contains("between(t,5,6)", expr, StringComparison.Ordinal);
+        Assert.DoesNotContain("if(between", expr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildFilter_ManyMutes_ChainsChunkedEnables()
+    {
+        var ranges = Enumerable.Range(0, 80)
+            .Select(i => new MuteTimeRange(i * 10, (i * 10) + 1))
+            .ToArray();
+        var filter = AudioEditExpressions.BuildFilter(ranges);
+        Assert.DoesNotContain("if(between", filter, StringComparison.Ordinal);
+        Assert.Equal(4, filter.Split("volume=0:enable=", StringSplitOptions.None).Length - 1); // 80/20
+        Assert.Contains("between(t,0,1)", filter, StringComparison.Ordinal);
+        Assert.Contains("between(t,790,791)", filter, StringComparison.Ordinal);
+        Assert.Equal(80, filter.Split("between(t,", StringSplitOptions.None).Length - 1);
     }
 }

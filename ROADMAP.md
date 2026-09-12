@@ -61,7 +61,7 @@ Optional later work: publish sidecar skip ranges as MediaSegments so stock clien
 | Per-user filters | Done (Phase 4) — apply toggle plus major/minor category filters; no presets; not per-range honor/ignore |
 | Core overlay | Mute `-af`, edit-graph, mute loader, `ISessionCorrDeliveryHint` (transcode / HLS / shortened ticks / name suffix) |
 
-See `distribution/APPLY_GUIDE.md` for the patched-server path. Known playback limits (always transcode, approximate duration, subs/chapters, hardware encode, …) live in `TODO.md`.
+See `distribution/APPLY_GUIDE.md` for the patched-server path. Known playback limits (always transcode, approximate duration, subs/chapters, graph = HW decode + CPU filters + HW encode, …) live in `TODO.md`.
 
 ---
 
@@ -113,7 +113,7 @@ Application order: **mute / zoom / blur on the original timeline, then cut** (om
 - [x] Timeline semantics: muted ranges keep duration; skipped ranges remove duration.
 - [x] Retire client Seek-based skip (sidecar load only → `CorrEditStore`).
 - [x] Overlap: skip removes media; mute applies only on remaining keep segments (mute first on full timeline, then trim).
-- [ ] Mid-stream seek on the shortened timeline (best-effort today; encode often starts at 0 when cuts exist).
+- [x] Mid-stream seek on the shortened timeline (demuxer `-ss` at original-mapped time; filter clocks shifted post-seek).
 - [x] Apply-edits off still plays the full original (Phase 2 landing).
 
 **Exit:** Sidecar with mute + skip produces a continuous edited stream; no client Seek.
@@ -138,14 +138,14 @@ Presets (“family”, “no commercials”, “mutes only”) are out of scope.
 
 - [ ] Optional MediaSegment provider from sidecar skips for client skip buttons when apply-edits is off.
 - [ ] Cache / reuse of edited transcodes for repeated playback.
-- [ ] Upstream Jellyfin PR for extension points (reduce need for a long-lived fork).
+- [ ] Upstream Jellyfin PR for extension points (reduce need for a long-lived fork). PR 1 encode hooks live on `feature/session-encode-hooks` in the sibling `../jellyfin` clone (against jellyfin `master`). Overlay in this repo stays the 10.11.11 backport.
 - [ ] Scene-marker / POI `action` in corr.json if product wants chapter-like ranges.
 - [x] HLS / external VTT and SRT on the cut timeline (see `EDITED-TIMELINE.md`).
 - [x] Trickplay on the cut timeline (see `EDITED-TIMELINE.md`).
 - [x] Internal PGS/DVD burn-in on the cut timeline (see `EDITED-TIMELINE.md`).
 - [x] Text/ASS and external graphical burn-in on the cut timeline (see `EDITED-TIMELINE.md`).
-- [ ] Chapters on the cut timeline (see `EDITED-TIMELINE.md`).
-- [ ] Mid-stream seek on the shortened timeline (carried from Phase 3).
+- [x] Mid-stream seek on the shortened timeline (carried from Phase 3; demuxer `-ss` + post-seek clock shift).
+- [x] Chapters on the cut timeline (see `EDITED-TIMELINE.md`).
 
 Dual-source / custom-client Version pickers are **out** (Phase 2 superseded).
 
@@ -160,7 +160,7 @@ Phase 0 ✅ → Phase 1 ✅ (server mute) → Phase 3 ✅ (effects-then-cut)
             → Phase 5 (optional polish)
 ```
 
-Phase 5 is optional polish (MediaSegments, transcode cache, upstream hooks, seek on the cut timeline).
+Phase 5 is optional polish (MediaSegments, transcode cache, upstream hooks).
 
 ---
 

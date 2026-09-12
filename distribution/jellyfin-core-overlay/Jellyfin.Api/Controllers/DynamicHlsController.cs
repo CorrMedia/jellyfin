@@ -1631,13 +1631,20 @@ public class DynamicHlsController : BaseJellyfinApiController
         var editGraphPrefix = string.Empty;
         long? savedEditSeek = null;
         if (state.IsOutputVideo
-            && _encodingHelper.TryGetSessionEditGraphMapArgs(state, out var filterComplexArg, out var editMapArgs))
+            && _encodingHelper.TryGetSessionEditGraphMapArgs(
+                state,
+                _encodingOptions,
+                out var filterComplexArg,
+                out var editMapArgs,
+                out var inputSeekSeconds))
         {
             editGraphPrefix = filterComplexArg + " ";
             mapArgs = editMapArgs;
-            // Graph already starts at edited seek — prevent input -ss from shifting original-timeline trims.
+            // Client StartTimeTicks is on the edited clock; demuxer -ss needs the original-mapped seek.
             savedEditSeek = state.BaseRequest.StartTimeTicks;
-            state.BaseRequest.StartTimeTicks = 0;
+            state.BaseRequest.StartTimeTicks = inputSeekSeconds > 0.001
+                ? TimeSpan.FromSeconds(inputSeekSeconds).Ticks
+                : 0;
             state.BaseRequest.AllowVideoStreamCopy = false;
             state.BaseRequest.AllowAudioStreamCopy = false;
         }
@@ -1651,7 +1658,7 @@ public class DynamicHlsController : BaseJellyfinApiController
         var segmentFormat = string.Empty;
         var segmentContainer = outputExtension.TrimStart('.');
         var inputModifier = _encodingHelper.GetInputModifier(state, _encodingOptions, segmentContainer);
-        // Capture -i args while seek is still 0 so external graphical/audio inputs stay on the original timeline.
+        // Capture -i args while StartTimeTicks holds the original-mapped seek (same for external inputs).
         var inputArgument = _encodingHelper.GetInputArgument(state, _encodingOptions, segmentContainer);
         if (savedEditSeek.HasValue)
         {
@@ -1744,8 +1751,35 @@ public class DynamicHlsController : BaseJellyfinApiController
             videoCodec = "libx264";
         }
 
-        return "-codec:v:0 " + videoCodec
-            + _encodingHelper.GetHlsVideoKeyFrameArguments(state, videoCodec, state.SegmentLength, isEventPlaylist, startNumber);
+        var args = "-codec:v:0 " + videoCodec;
+
+        var isActualOutputVideoCodecHevc = string.Equals(state.ActualOutputVideoCodec, "h265", StringComparison.OrdinalIgnoreCase)
+                                           || string.Equals(state.ActualOutputVideoCodec, "hevc", StringComparison.OrdinalIgnoreCase);
+        if (isActualOutputVideoCodecHevc)
+        {
+            args += " -tag:v:0 hvc1";
+        }
+
+        args += _encodingHelper.GetVideoQualityParam(
+            state,
+            videoCodec,
+            _encodingOptions,
+            isEventPlaylist ? DefaultEventEncoderPreset : DefaultVodEncoderPreset);
+        args += _encodingHelper.GetHlsVideoKeyFrameArguments(state, videoCodec, state.SegmentLength, isEventPlaylist, startNumber);
+
+        if (string.Equals(videoCodec, "libx265", StringComparison.OrdinalIgnoreCase)
+            && _mediaEncoder.EncoderVersion < _minFFmpegX265BframeInFmp4)
+        {
+            args += " -bf 0";
+        }
+
+        if (!string.IsNullOrEmpty(state.OutputVideoSync))
+        {
+            args += EncodingHelper.GetVideoSyncOption(state.OutputVideoSync, _mediaEncoder.EncoderVersion);
+        }
+
+        args += _encodingHelper.GetOutputFFlags(state);
+        return args;
     }
 
     private string GetAudioArgumentsForEditGraph(StreamState state)

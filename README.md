@@ -134,13 +134,15 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 
 ## Installation
 
+Site: [corrmedia.github.io](https://corrmedia.github.io). Source: [github.com/CorrMedia/jellyfin](https://github.com/CorrMedia/jellyfin).
+
 1. Clone this repository or download the release
 2. Build the plugin and place the `.dll` in your Jellyfin `plugins` folder
 3. Restart Jellyfin
 4. Configure the plugin in the Jellyfin dashboard
 5. Place `{stem}.corr.json` next to each video
 
-**Server-side mute + cut (transcoding):** Requires a Jellyfin server built with the core overlay. See `distribution/APPLY_GUIDE.md`. Edit plans are loaded in-process before the stream starts.
+**Server-side mute + cut (transcoding):** Requires a Jellyfin server built with the core overlay. See [`distribution/APPLY_GUIDE.md`](distribution/APPLY_GUIDE.md). Edit plans are loaded in-process before the stream starts.
 
 ## Configuration
 
@@ -155,9 +157,9 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 ## Known Limitations
 
 * **Edited encode requires patched Jellyfin** (core overlay). On stock Jellyfin, filters are not applied.
-* Sidecar playback forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability
+* Sidecar playback forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability. Mute-only can still use stock HW video encode; skip/effects graphs decode on CPU then HW-encode.
 * Edited `RunTimeTicks` is original duration minus merged skip totals (approximate for scrubbing)
-* HLS / external VTT and SRT cues and trickplay tiles are remapped onto the cut timeline; burned-in text/ASS and graphical subs (internal or external) overlay before cuts. Chapters are dropped.
+* HLS / external VTT and SRT cues, trickplay tiles, and chapter markers are remapped onto the cut timeline; burned-in text/ASS and graphical subs (internal or external) overlay before cuts.
 * Sidecars must sit beside media files (`MyMovie.mkv` → `MyMovie.corr.json`)
 * Invalid or unreadable `.corr.json` is treated as no edits (a warning is logged)
 * Sidecar `edits[].categories` map onto the shared dashboard taxonomy. Language groups drill down to specific words (`word_ass`, `word_damn`, …). Unknown tokens count as Other.

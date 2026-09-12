@@ -8,6 +8,8 @@ Adds:
 - ISessionCorrDeliveryHint — apply-edits detection on the primary source, force HLS when cuts exist, shortened runtime
 - ISessionSubtitleCueRewriter — remap HLS / external VTT and SRT cues onto the edited timeline
 - ISessionTrickplayRewriter / ITrickplayCellCropper — remap trickplay duration and tile cells onto the edited timeline
+- ISessionChapterRewriter — remap BaseItemDto chapter markers onto the edited timeline
+- SessionEditGraphHwBridge — HW decode hwdownload (when known) + CPU graph → format/hwupload before GetVideoEncoder
 - EncodingHelper / VideosController / DynamicHlsController / DynamicHlsHelper / StreamingHelpers / MediaInfoHelper / DtoService / MediaSourceManager / UserLibraryController / SubtitleController / TrickplayController / CoreAppHost wiring
 
 When a `.corr.json` sidecar exists and the user has apply-edits on, the normal library item

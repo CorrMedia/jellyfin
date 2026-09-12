@@ -77,7 +77,7 @@ if (-not $SkipPlugins) {
 
     Write-Host 'CorrMedia staged to docker\jellyfin\plugins.'
 
-    foreach ($legacyName in @('Jellyfin.Plugin.CorrMedia', 'Jellyfin.Plugin.AudioControl')) {
+    foreach ($legacyName in @('Jellyfin.Plugin.AudioControl')) {
         $legacyDir = Join-Path $pluginRoot $legacyName
         if (Test-Path $legacyDir) {
             Remove-Item -Recurse -Force $legacyDir
@@ -88,24 +88,20 @@ if (-not $SkipPlugins) {
     Write-Host 'Skipping plugin build and stage.'
 }
 
-# 2b. Test media: compose bind-mounts repo-root test-movie files over /media.
+# 2b. Test media: compose bind-mounts repo-root test-movie / test2 files over /media.
 # Copies below keep docker/jellyfin/media in sync for inspection; playback uses the bind mounts.
 $mediaDir = Join-Path $repoRoot 'docker\jellyfin\media'
 New-Item -ItemType Directory -Force -Path $mediaDir | Out-Null
-$rootCorr = Join-Path $repoRoot 'test-movie.corr.json'
-$rootMkv = Join-Path $repoRoot 'test-movie.mkv'
-$rootVtt = Join-Path $repoRoot 'test-movie.vtt'
-if (Test-Path $rootCorr) {
-    Copy-Item -Force $rootCorr (Join-Path $mediaDir 'test-movie.corr.json')
-    Write-Host 'Copied test-movie.corr.json to docker\jellyfin\media.'
+foreach ($name in @('test-movie.corr.json', 'test-movie.mkv', 'test-movie.vtt', 'test2.corr.json')) {
+    $src = Join-Path $repoRoot $name
+    if (Test-Path $src) {
+        Copy-Item -Force $src (Join-Path $mediaDir $name)
+        Write-Host "Copied $name to docker\jellyfin\media."
+    }
 }
-if (Test-Path $rootMkv) {
-    Copy-Item -Force $rootMkv (Join-Path $mediaDir 'test-movie.mkv')
-    Write-Host 'Copied test-movie.mkv to docker\jellyfin\media.'
-}
-if (Test-Path $rootVtt) {
-    Copy-Item -Force $rootVtt (Join-Path $mediaDir 'test-movie.vtt')
-    Write-Host 'Copied test-movie.vtt to docker\jellyfin\media.'
+# test2.mkv is multi-GB — rely on compose bind-mount; do not copy into media/.
+if (Test-Path (Join-Path $repoRoot 'test2.mkv')) {
+    Write-Host 'test2.mkv will be bind-mounted from repo root (not copied).'
 }
 
 # 3. Start stack (force-recreate so new image/plugins are used)
@@ -114,7 +110,14 @@ if ($StartStack) {
     New-Item -ItemType Directory -Force -Path $dockerClientConfig | Out-Null
     '{}' | Set-Content -Path (Join-Path $dockerClientConfig 'config.json')
 
-    docker --config $dockerClientConfig compose -f $composeFile up -d --force-recreate
+    $composeArgs = @('--config', $dockerClientConfig, 'compose', '-f', $composeFile)
+    $nvidiaCompose = Join-Path $repoRoot 'docker-compose.patched.nvidia.yml'
+    if ((Test-Path $nvidiaCompose) -and (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
+        Write-Host 'NVIDIA GPU detected; passing it into the container for NVENC.'
+        $composeArgs += @('-f', $nvidiaCompose)
+    }
+
+    docker @composeArgs up -d --force-recreate
     if ($LASTEXITCODE -ne 0) {
         throw 'Failed to start stack.'
     }

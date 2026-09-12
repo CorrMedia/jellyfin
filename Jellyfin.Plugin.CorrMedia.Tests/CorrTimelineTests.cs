@@ -60,6 +60,15 @@ public sealed class CorrTimelineTests
     }
 
     [Fact]
+    public void TryMapEditedToOriginal_AccountsForSkippedGap()
+    {
+        // Skip 15-20: edited 42 maps to original 47 (42 + 5).
+        var keep = CorrTimeline.BuildKeepRanges([new MuteTimeRange(15, 20)], 90);
+        Assert.True(CorrTimeline.TryMapEditedToOriginal(42, keep, out var original));
+        Assert.Equal(47, original, 3);
+    }
+
+    [Fact]
     public void TailKeepRange_UsesLastFortyMilliseconds()
     {
         var tail = CorrTimeline.TailKeepRange([(0d, 10d), (20d, 60d)]);

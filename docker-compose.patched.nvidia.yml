@@ -1,0 +1,9 @@
+# Optional overlay: pass an NVIDIA GPU into the patched stack so edit-graph
+# jobs can use NVENC (CPU corr.json filters, hardware encode).
+#   docker compose -f docker-compose.patched.yml -f docker-compose.patched.nvidia.yml up -d
+services:
+  jellyfin:
+    gpus: all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
