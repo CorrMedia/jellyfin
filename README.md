@@ -136,8 +136,8 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 
 Site: [corrmedia.github.io](https://corrmedia.github.io). Source: [github.com/CorrMedia/jellyfin](https://github.com/CorrMedia/jellyfin).
 
-1. Clone this repository or download the release
-2. Build the plugin and place the `.dll` in your Jellyfin `plugins` folder
+1. Download [CorrMedia.zip](https://github.com/CorrMedia/jellyfin/releases/latest) or build this repository
+2. Extract the zip into your Jellyfin `plugins` folder (so `Jellyfin.Plugin.CorrMedia.dll` sits in a plugin directory)
 3. Restart Jellyfin
 4. Configure the plugin in the Jellyfin dashboard
 5. Place `{stem}.corr.json` next to each video
