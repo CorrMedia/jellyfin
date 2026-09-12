@@ -134,7 +134,7 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 
 ## Installation
 
-Site: [corrmedia.github.io](https://corrmedia.github.io). Source: [github.com/CorrMedia/jellyfin](https://github.com/CorrMedia/jellyfin).
+Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://github.com/CorrMedia/CorrMedia.github.io)). Plugin catalog: [github.com/CorrMedia/jellyfin](https://github.com/CorrMedia/jellyfin).
 
 1. Download [CorrMedia.zip](https://github.com/CorrMedia/jellyfin/releases/latest) or build this repository
 2. Extract the zip into your Jellyfin `plugins` folder (so `Jellyfin.Plugin.CorrMedia.dll` sits in a plugin directory)
