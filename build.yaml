@@ -10,7 +10,7 @@ description: >
   Applies sidecar .corr.json edits during playback on patched Jellyfin.
   Per-user apply toggle and category filters.
 category: "General"
-owner: "CorrMedia",
+owner: "CorrMedia"
 artifacts:
 - "Jellyfin.Plugin.CorrMedia.dll"
 changelog: >
