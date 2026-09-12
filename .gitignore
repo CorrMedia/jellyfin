@@ -12,3 +12,4 @@ jellyfin-source/
 debug-*.log
 *.mkv
 test2.corr.json
+website/
