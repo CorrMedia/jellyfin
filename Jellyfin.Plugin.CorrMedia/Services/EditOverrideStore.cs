@@ -72,9 +72,10 @@ public sealed class EditOverrideStore
         }
 
         _logger.LogInformation(
-            "CorrMedia overrides User={UserId} applyEdits={ApplyEdits} restrict={Restrict} enabled={EnabledCount}",
+            "CorrMedia overrides User={UserId} applyEdits={ApplyEdits} showBadge={ShowBadge} restrict={Restrict} enabled={EnabledCount}",
             userId,
             cleaned.ApplyEdits,
+            cleaned.ShowEditedBadge,
             cleaned.RestrictToCategories,
             cleaned.EnabledCategories.Count);
     }
@@ -126,7 +127,7 @@ public sealed class EditOverrideStore
         }
 
         var cacheKey = userId.ToString("N", CultureInfo.InvariantCulture);
-        if (file.ApplyEdits != false && !file.RestrictToCategories)
+        if (file.ApplyEdits != false && file.ShowEditedBadge != false && !file.RestrictToCategories)
         {
             _cache.TryRemove(cacheKey, out _);
             if (File.Exists(path))
@@ -164,6 +165,7 @@ public sealed class EditOverrideStore
         var result = new UserItemEditOverrides
         {
             ApplyEdits = overrides?.ApplyEdits != false,
+            ShowEditedBadge = overrides?.ShowEditedBadge != false,
             RestrictToCategories = overrides?.RestrictToCategories == true
         };
         foreach (var id in ids)
@@ -184,6 +186,7 @@ public sealed class EditOverrideStore
         var clone = new UserItemEditOverrides
         {
             ApplyEdits = stored.ApplyEdits ?? true,
+            ShowEditedBadge = stored.ShowEditedBadge ?? true,
             RestrictToCategories = stored.RestrictToCategories
         };
         foreach (var id in stored.EnabledCategories ?? [])
@@ -199,6 +202,7 @@ public sealed class EditOverrideStore
         var file = new UserOverrideFile
         {
             ApplyEdits = overrides.ApplyEdits,
+            ShowEditedBadge = overrides.ShowEditedBadge,
             RestrictToCategories = overrides.RestrictToCategories,
             EnabledCategories = [.. overrides.EnabledCategories]
         };
@@ -214,6 +218,12 @@ public sealed class EditOverrideStore
         /// Gets or sets whether sidecar edits run on playback. Null means default true.
         /// </summary>
         public bool? ApplyEdits { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the start-of-stream "Edited" badge is burned in.
+        /// Null means default true.
+        /// </summary>
+        public bool? ShowEditedBadge { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether only <see cref="EnabledCategories"/> apply.

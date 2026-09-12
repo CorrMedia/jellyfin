@@ -134,6 +134,12 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 
 ## Installation
 
+**Before you install**
+
+- Backup your Jellyfin config directory first, just in case. Keep a way back to a stock server if you apply the core overlay.
+- There is no installer or built-in upgrade path yet. You copy the plugin by hand and restart; mute/cut also means rebuilding a patched Jellyfin.
+- Needs more testing. Playback has not been tried on every OS, client, or hardware path.
+
 Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://github.com/CorrMedia/CorrMedia.github.io)). Plugin catalog: [github.com/CorrMedia/jellyfin](https://github.com/CorrMedia/jellyfin).
 
 1. Download [CorrMedia.zip](https://github.com/CorrMedia/jellyfin/releases/latest) or build this repository
@@ -147,12 +153,13 @@ Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://githu
 ## Configuration
 
 - **Apply sidecar edits when a .corr.json file exists** — Default **on**, per user. Every client plays the edited stream; titles show `{Title} (Edited)`. Turn off to play the untouched file. Restart playback after saving.
+- **Show "Edited" on screen only on sidecar-edited titles** — Default **on**, per user. Burns a corner badge onto the first few seconds when that title is playing with sidecar edits (cuts / picture edits / selective mute). Untouched files never show it. Mid-title seek and resume omit it. Restart playback after saving.
 - **Apply every treatment in the .corr.json sidecar** — Default **on**. Every sidecar edit runs as written. Turn it off to choose categories. A camera or speaker with no strike means that class plays original; a struck icon means apply the sidecar’s treatment (mute, beep, crop, skip, etc.). These controls do not change how a treatment is done. Categories are a shared taxonomy; sidecar `edits[].categories` map into it.
 
 ## Compatibility
 
-* Tested on Jellyfin 10.11.11 (plugin ABI) / patched 10.11.11 overlay
-* Web, mobile, and TV clients that honor `MediaSourceId`
+* Targeted at Jellyfin 10.11.11 (plugin ABI) / patched 10.11.11 overlay
+* Web, mobile, and TV clients that honor `MediaSourceId` should work; coverage is incomplete
 
 ## Known Limitations
 

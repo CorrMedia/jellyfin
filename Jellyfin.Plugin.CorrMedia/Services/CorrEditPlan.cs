@@ -49,4 +49,10 @@ public sealed record CorrEditPlan(
     /// Gets probed source channel count, when known from the media file.
     /// </summary>
     public int SourceChannelCount { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the burned-in "Edited" badge should
+    /// appear at the start of a play-from-start encode. Default is true.
+    /// </summary>
+    public bool ShowEditedBadge { get; init; } = true;
 }

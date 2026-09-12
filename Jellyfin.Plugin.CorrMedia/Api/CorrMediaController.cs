@@ -31,7 +31,7 @@ public sealed class CorrMediaController : ControllerBase
     }
 
     /// <summary>
-    /// Gets this user's apply toggle, category filters, and the shared category tree.
+    /// Gets this user's apply toggle, badge setting, category filters, and the shared category tree.
     /// </summary>
     /// <returns>Master toggle plus majors/minors.</returns>
     [HttpGet("Filters")]
@@ -48,7 +48,7 @@ public sealed class CorrMediaController : ControllerBase
     }
 
     /// <summary>
-    /// Saves this user's apply toggle and category filters.
+    /// Saves this user's apply toggle, badge setting, and category filters.
     /// </summary>
     /// <param name="request">Master toggle and enabled category ids.</param>
     /// <returns>Updated filters.</returns>
@@ -72,6 +72,7 @@ public sealed class CorrMediaController : ControllerBase
         var overrides = new UserItemEditOverrides
         {
             ApplyEdits = request?.ApplyEdits != false,
+            ShowEditedBadge = request?.ShowEditedBadge != false,
             RestrictToCategories = request?.RestrictToCategories == true
         };
         foreach (var id in enabled)
@@ -135,6 +136,7 @@ public sealed class CorrMediaController : ControllerBase
         return new CorrPlaybackFiltersDto
         {
             ApplyEdits = overrides.ApplyEdits,
+            ShowEditedBadge = overrides.ShowEditedBadge,
             RestrictToCategories = overrides.RestrictToCategories,
             Groups = groups
         };

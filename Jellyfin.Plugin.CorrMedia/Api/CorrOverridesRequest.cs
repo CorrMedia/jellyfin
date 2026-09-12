@@ -14,6 +14,12 @@ public sealed class CorrOverridesRequest
     public bool ApplyEdits { get; init; } = true;
 
     /// <summary>
+    /// Gets a value indicating whether the burned-in "Edited" badge
+    /// should appear at the start of an edited stream. Default is true.
+    /// </summary>
+    public bool ShowEditedBadge { get; init; } = true;
+
+    /// <summary>
     /// Gets a value indicating whether only <see cref="EnabledCategories"/> should apply.
     /// False (default) means apply every sidecar edit.
     /// </summary>

@@ -2,6 +2,8 @@
 
 Use this when you want to build Jellyfin with the EDL mute-then-cut extension and run **CorrMedia**.
 
+**Before you install:** backup your Jellyfin config directory (and keep a path back to stock) before applying the overlay. There is no installer or built-in upgrade path — this is a manual rebuild and plugin copy. Needs more testing; it has not been tried on every OS, client, or hardware path.
+
 ## Prerequisites
 
 - .NET 9 SDK
@@ -51,6 +53,7 @@ Enable CorrMedia. Place `{stem}.corr.json` next to media. Times are on the origi
 - Text/ASS burn-in (Encode / always-burn-in): captions stay on the cut stream.
 - Trickplay / scrubber preview: duration matches the cut stream; skip interiors are not shown.
 - Turn **Apply sidecar edits** off, restart playback: untouched file, no `(Edited)` suffix.
+- Turn **Show "Edited" on screen only on sidecar-edited titles** off, restart from the start: no burned-in corner badge. Untouched files never show it. Mid-title seek never shows it.
 
 ## Pass/fail signals
 

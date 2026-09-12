@@ -130,6 +130,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services
                 {
                     SourceChannelLayout = layout,
                     SourceChannelCount = channelCount,
+                    ShowEditedBadge = _editOverrideStore.Get(userId).ShowEditedBadge,
                 },
                 playSessionId,
                 deviceId,

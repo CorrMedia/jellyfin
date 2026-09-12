@@ -18,6 +18,12 @@ public sealed class UserItemEditOverrides
     public bool ApplyEdits { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the burned-in "Edited" badge
+    /// appears at the start of an edited stream. Default is true.
+    /// </summary>
+    public bool ShowEditedBadge { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets a value indicating whether only <see cref="EnabledCategories"/> should be applied.
     /// When false, every sidecar edit is applied (the uncustomized default).
     /// </summary>
@@ -29,9 +35,10 @@ public sealed class UserItemEditOverrides
     public Collection<string> EnabledCategories { get; } = [];
 
     /// <summary>
-    /// Gets a value indicating whether this is the uncustomized default (apply the entire sidecar).
+    /// Gets a value indicating whether this is the uncustomized default
+    /// (apply the entire sidecar, show the start-of-stream badge).
     /// </summary>
-    public bool IsEmpty => ApplyEdits && !RestrictToCategories;
+    public bool IsEmpty => ApplyEdits && ShowEditedBadge && !RestrictToCategories;
 
     /// <summary>
     /// Returns true when this edit's categories should be applied.

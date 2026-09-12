@@ -131,7 +131,7 @@ internal static class CorrFilterComplexBuilder
             outputAudioChannels,
             stereoDownmixFilter);
 
-        var showBadge = editedStartSeconds <= 0.001;
+        var showBadge = plan.ShowEditedBadge && editedStartSeconds <= 0.001;
 
         if (keep.Count == 0)
         {

@@ -14,6 +14,12 @@ public sealed class CorrPlaybackFiltersDto
     public bool ApplyEdits { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the burned-in "Edited" badge
+    /// appears at the start of an edited stream. Default is true.
+    /// </summary>
+    public bool ShowEditedBadge { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets a value indicating whether only enabled categories apply.
     /// False means apply the entire sidecar (uncustomized default).
     /// </summary>

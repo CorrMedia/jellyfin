@@ -144,6 +144,13 @@
                         </label>
                         <div class="fieldDescription">When on, every client plays the sidecar-edited stream (listing play, Continue Watching, apps). Titles show " (Edited)". Turn off to play the untouched file. Restart playback after saving.</div>
                     </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input id="CorrShowEditedBadge" type="checkbox" is="emby-checkbox" />
+                            <span>Show "Edited" on screen only on sidecar-edited titles</span>
+                        </label>
+                        <div class="fieldDescription">When a title is playing with sidecar edits (cuts, picture edits, or selective mute), burns a corner badge onto the first few seconds. Untouched files never show it. Mid-title seek and resume do not show it. Restart playback after saving.</div>
+                    </div>
                 </div>
 
                 <div class="verticalSection" id="CorrTreatmentsSection">
@@ -350,6 +357,8 @@
                 var page = pageEl();
                 var applyEdits = pick(dto, 'applyEdits', 'ApplyEdits');
                 page.querySelector('#CorrApplyEdits').checked = applyEdits !== false;
+                var showBadge = pick(dto, 'showEditedBadge', 'ShowEditedBadge');
+                page.querySelector('#CorrShowEditedBadge').checked = showBadge !== false;
                 var restrict = !!pick(dto, 'restrictToCategories', 'RestrictToCategories');
                 page.querySelector('#CorrApplyAll').checked = !restrict;
                 var groups = pick(dto, 'groups', 'Groups') || [];
@@ -379,7 +388,7 @@
                     return;
                 }
                 ApiClient.getJSON(ApiClient.getUrl('CorrMedia/Filters')).then(applyDto).catch(function () {
-                    applyDto({ applyEdits: true, restrictToCategories: false, groups: [] });
+                    applyDto({ applyEdits: true, showEditedBadge: true, restrictToCategories: false, groups: [] });
                 });
             }
 
@@ -468,6 +477,7 @@
                         url: ApiClient.getUrl('CorrMedia/Filters'),
                         data: JSON.stringify({
                             applyEdits: page.querySelector('#CorrApplyEdits').checked,
+                            showEditedBadge: page.querySelector('#CorrShowEditedBadge').checked,
                             restrictToCategories: !applyAll,
                             enabledCategories: applyAll ? [] : enabled
                         }),

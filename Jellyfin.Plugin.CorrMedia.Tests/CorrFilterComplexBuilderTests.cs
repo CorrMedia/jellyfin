@@ -277,6 +277,20 @@ public sealed class CorrFilterComplexBuilderTests
     }
 
     [Fact]
+    public void Build_ShowEditedBadgeOff_OmitsDrawtext()
+    {
+        var plan = new CorrEditPlan([], [new MuteTimeRange(10, 20)], [], 60)
+        {
+            ShowEditedBadge = false
+        };
+        var graph = CorrFilterComplexBuilder.Build(plan, 60);
+        Assert.NotNull(graph);
+        Assert.Equal("vout", graph.VideoMapLabel);
+        Assert.DoesNotContain("drawtext=", graph.FilterComplex, StringComparison.Ordinal);
+        Assert.Contains("concat=n=2:v=1:a=1[vout][aout]", graph.FilterComplex, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AppendEditedBadge_FromStart_DrawsCornerText()
     {
         var sb = new StringBuilder("[0:v]null[vout];");
