@@ -25,7 +25,7 @@ Schema: [`schema/corr.schema.json`](schema/corr.schema.json).
 
 ### corr.json format
 
-All `start` / `end` values are seconds on the **original** source timeline and runtime. They are never rewritten to account for cuts or other length-changing edits.
+All `start` / `end` values are seconds on the **original** source timeline and runtime (fractional values are allowed, e.g. `12.4`). They are never rewritten to account for cuts or other length-changing edits.
 
 **Application order:** non-length-altering modifications (mute, volume, beep, zoom, crop, blur, pixelate, cover, blank) are applied first; length-altering modifications (skip/cut) are applied after. A mute or zoom at `1800–2100` always means those seconds of the original file, even if earlier skips removed other ranges. Output frame size never changes: crop pads with black rather than resizing the stream.
 
@@ -49,8 +49,8 @@ Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/
 {
   "schema_version": "1.0",
   "edits": [
-    { "id": "edit_001", "start": 0, "end": 1200, "action": "skip" },
-    { "id": "edit_002", "start": 3600, "end": 5400, "action": "skip" }
+    { "id": "edit_001", "start": 0.0, "end": 1200.0, "action": "skip" },
+    { "id": "edit_002", "start": 3600.0, "end": 5400.0, "action": "skip" }
   ]
 }
 ```
@@ -60,9 +60,9 @@ Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/
 {
   "schema_version": "1.0",
   "edits": [
-    { "id": "edit_001", "start": 0, "end": 300, "action": "mute" },
-    { "id": "edit_002", "start": 300, "end": 600, "action": "skip" },
-    { "id": "edit_003", "start": 1800, "end": 2100, "action": "mute" }
+    { "id": "edit_001", "start": 0.0, "end": 300.0, "action": "mute" },
+    { "id": "edit_002", "start": 300.0, "end": 600.0, "action": "skip" },
+    { "id": "edit_003", "start": 1800.0, "end": 2100.0, "action": "mute" }
   ]
 }
 ```
@@ -72,8 +72,8 @@ Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/
 {
   "schema_version": "1.0",
   "edits": [
-    { "id": "edit_001", "start": 10, "end": 20, "action": "mute", "channels": ["FC"] },
-    { "id": "edit_002", "start": 30, "end": 40, "action": "mute", "channels": ["FL", "FR", "FC"] }
+    { "id": "edit_001", "start": 10.25, "end": 20.5, "action": "mute", "channels": ["FC"] },
+    { "id": "edit_002", "start": 30.0, "end": 40.0, "action": "mute", "channels": ["FL", "FR", "FC"] }
   ]
 }
 ```
@@ -83,7 +83,7 @@ Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/
 {
   "schema_version": "1.0",
   "edits": [
-    { "id": "edit_001", "start": 10, "end": 25, "action": "zoom", "scale": 2, "x": 0.3, "y": 0.35, "x_end": 0.7 }
+    { "id": "edit_001", "start": 10.0, "end": 25.0, "action": "zoom", "scale": 2, "x": 0.3, "y": 0.35, "x_end": 0.7 }
   ]
 }
 ```
@@ -95,8 +95,8 @@ Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/
   "edits": [
     {
       "id": "edit_001",
-      "start": 8,
-      "end": 20,
+      "start": 8.0,
+      "end": 20.0,
       "action": "blur",
       "radius": 12,
       "box": { "x": 0.05, "y": 0.75, "width": 0.3, "height": 0.2 },
@@ -111,7 +111,7 @@ Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/
 {
   "schema_version": "1.0",
   "edits": [
-    { "id": "edit_001", "start": 10, "end": 20, "action": "crop", "scale": 2, "x": 0.5, "y": 0.45 }
+    { "id": "edit_001", "start": 10.0, "end": 20.0, "action": "crop", "scale": 2, "x": 0.5, "y": 0.45 }
   ]
 }
 ```
@@ -121,11 +121,11 @@ Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/
 {
   "schema_version": "1.0",
   "edits": [
-    { "id": "edit_001", "start": 8, "end": 16, "action": "cover", "box": { "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4 } },
-    { "id": "edit_002", "start": 20, "end": 28, "action": "pixelate", "size": 24, "box": { "x": 0.6, "y": 0.3, "width": 0.25, "height": 0.3 } },
-    { "id": "edit_003", "start": 30, "end": 34, "action": "blank" },
-    { "id": "edit_004", "start": 40, "end": 50, "action": "volume", "gain": 0.2 },
-    { "id": "edit_005", "start": 55, "end": 58, "action": "beep", "frequency": 1000 }
+    { "id": "edit_001", "start": 8.0, "end": 16.0, "action": "cover", "box": { "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4 } },
+    { "id": "edit_002", "start": 20.0, "end": 28.0, "action": "pixelate", "size": 24, "box": { "x": 0.6, "y": 0.3, "width": 0.25, "height": 0.3 } },
+    { "id": "edit_003", "start": 30.0, "end": 34.0, "action": "blank" },
+    { "id": "edit_004", "start": 40.0, "end": 50.0, "action": "volume", "gain": 0.2 },
+    { "id": "edit_005", "start": 55.0, "end": 58.0, "action": "beep", "frequency": 1000 }
   ]
 }
 ```
@@ -157,7 +157,8 @@ Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://githu
 ## Known Limitations
 
 * **Edited encode requires patched Jellyfin** (core overlay). On stock Jellyfin, filters are not applied.
-* Sidecar playback forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability. Mute-only can still use stock HW video encode; skip/effects graphs decode on CPU then HW-encode.
+* Sidecar playback forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability.
+* Skip and picture edits cannot stay entirely on the GPU. NVENC, QSV, VAAPI, and similar can decode and encode, but they do not expose a portable filter set for overlay, punch-in crop, concat cuts, or timed boxes. Those run on the CPU after a download from the decoder; the encoder can still be hardware. Mute-only (no cuts or picture edits) still uses Jellyfin’s stock hardware video path. HDR/10-bit through the graph is flattened to 8-bit. Turn apply-edits off if a title only plays via a full hardware transcode.
 * Edited `RunTimeTicks` is original duration minus merged skip totals (approximate for scrubbing)
 * HLS / external VTT and SRT cues, trickplay tiles, and chapter markers are remapped onto the cut timeline; burned-in text/ASS and graphical subs (internal or external) overlay before cuts.
 * Sidecars must sit beside media files (`MyMovie.mkv` → `MyMovie.corr.json`)

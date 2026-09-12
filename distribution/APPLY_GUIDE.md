@@ -80,7 +80,7 @@ Enable CorrMedia. Place `{stem}.corr.json` next to media. Times are on the origi
 
 Open **http://localhost:18096**. Library media lives in `docker\jellyfin\media`. The test clip sidecar is bind-mounted from repo-root `test-movie.corr.json`, so editing that file is what Edited playback reads.
 
-Edit-graph jobs are HW decode (when known) + `hwdownload` + CPU filters + `GetVideoEncoder`. To use NVENC locally, set Dashboard → Playback → hardware acceleration to NVIDIA NVENC, then start with GPU passthrough:
+Edit-graph jobs are HW decode (when known) + `hwdownload` + CPU filters + `GetVideoEncoder`. GPU encode is available; GPU filters are not a portable replacement for overlay, punch-in, concat cuts, or timed boxes. To use NVENC locally, set Dashboard → Playback → hardware acceleration to NVIDIA NVENC, then start with GPU passthrough:
 
 ```powershell
 docker compose -f docker-compose.patched.yml -f docker-compose.patched.nvidia.yml up -d
