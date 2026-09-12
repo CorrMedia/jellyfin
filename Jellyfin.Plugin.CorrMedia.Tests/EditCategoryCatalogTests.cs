@@ -1,3 +1,4 @@
+using System.IO;
 using Jellyfin.Plugin.CorrMedia.Models;
 
 namespace Jellyfin.Plugin.CorrMedia.Tests;
@@ -59,5 +60,17 @@ public sealed class EditCategoryCatalogTests
         Assert.False(overrides.IsHonored(["profanity"]));
         Assert.False(overrides.IsHonored([]));
         Assert.True(new UserItemEditOverrides().IsHonored(["anything"]));
+    }
+
+    [Fact]
+    public void CategoriesMarkdown_ListsEveryCatalogId()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "categories.md");
+        Assert.True(File.Exists(path), path);
+        var markdown = File.ReadAllText(path);
+        foreach (var id in EditCategoryCatalog.AllMinorIds)
+        {
+            Assert.Contains("`" + id + "`", markdown, StringComparison.Ordinal);
+        }
     }
 }

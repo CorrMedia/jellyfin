@@ -32,6 +32,7 @@
     <None Include="..\examples\example_mixed.corr.json" Link="Fixtures\example_mixed.corr.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\examples\example_extra_actions.corr.json" Link="Fixtures\example_extra_actions.corr.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\examples\example_mute_channels_51.corr.json" Link="Fixtures\example_mute_channels_51.corr.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\schema\categories.md" Link="Fixtures\categories.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

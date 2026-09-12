@@ -21,7 +21,7 @@ For each video, the plugin looks for `{stem}.corr.json` next to the file. If the
 
 Example: watching `/media/movies/MyMovie.mkv` requires `/media/movies/MyMovie.corr.json`.
 
-Schema: [`schema/corr.schema.json`](schema/corr.schema.json).
+Schema: [`schema/corr.schema.json`](schema/corr.schema.json). Category ids for `edits[].categories`: [`schema/categories.md`](schema/categories.md) (same tree as the plugin dashboard).
 
 ### corr.json format
 
@@ -154,12 +154,12 @@ Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://githu
 
 - **Apply sidecar edits when a .corr.json file exists** — Default **on**, per user. Every client plays the edited stream; titles show `{Title} (Edited)`. Turn off to play the untouched file. Restart playback after saving.
 - **Show "Edited" on screen only on sidecar-edited titles** — Default **on**, per user. Burns a corner badge onto the first few seconds when that title is playing with sidecar edits (cuts / picture edits / selective mute). Untouched files never show it. Mid-title seek and resume omit it. Restart playback after saving.
-- **Apply every treatment in the .corr.json sidecar** — Default **on**. Every sidecar edit runs as written. Turn it off to choose categories. A camera or speaker with no strike means that class plays original; a struck icon means apply the sidecar’s treatment (mute, beep, crop, skip, etc.). These controls do not change how a treatment is done. Categories are a shared taxonomy; sidecar `edits[].categories` map into it.
+- **Apply every treatment in the .corr.json sidecar** — Default **on**. Every sidecar edit runs as written. Turn it off to choose categories. A camera or speaker with no strike means that class plays original; a struck icon means apply the sidecar’s treatment (mute, beep, crop, skip, etc.). These controls do not change how a treatment is done. Sidecar ids are listed in [`schema/categories.md`](schema/categories.md).
 
 ## Compatibility
 
 * Targeted at Jellyfin 10.11.11 (plugin ABI) / patched 10.11.11 overlay
-* Web, mobile, and TV clients that honor `MediaSourceId` should work; coverage is incomplete
+* Listing play, Continue Watching, and typical web/mobile/TV clients use the primary item; coverage is incomplete
 
 ## Known Limitations
 
@@ -170,7 +170,7 @@ Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://githu
 * HLS / external VTT and SRT cues, trickplay tiles, and chapter markers are remapped onto the cut timeline; burned-in text/ASS and graphical subs (internal or external) overlay before cuts.
 * Sidecars must sit beside media files (`MyMovie.mkv` → `MyMovie.corr.json`)
 * Invalid or unreadable `.corr.json` is treated as no edits (a warning is logged)
-* Sidecar `edits[].categories` map onto the shared dashboard taxonomy. Language groups drill down to specific words (`word_ass`, `word_damn`, …). Unknown tokens count as Other.
+* Sidecar `edits[].categories` map onto the dashboard tree in [`schema/categories.md`](schema/categories.md). Language groups drill down to specific words (`word_ass`, `word_damn`, …). Unknown tokens count as Other.
 
 ## Roadmap
 

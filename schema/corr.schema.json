@@ -121,7 +121,7 @@
           "categories": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Content tags used to turn sidecar treatments on or off. Preferred ids match the dashboard taxonomy (profanity, word_ass, sex_with_nudity, graphic, …). A parent id applies the whole group; a word id applies that word only. The action on the edit still decides mute vs beep vs crop vs skip. Aliases: sex, nudity, ass, fuck, violence, language. Unknown tokens map to other."
+            "description": "Content tags used to turn sidecar treatments on or off. Use ids from schema/categories.md (the plugin dashboard tree). A parent id applies the whole group; a word id applies that word only. The action on the edit still decides mute vs beep vs crop vs skip. Unknown tokens map to other."
           },
           "severity": { "type": "integer" },
           "description": { "type": "string" }

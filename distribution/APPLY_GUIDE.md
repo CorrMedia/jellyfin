@@ -1,6 +1,6 @@
 # Apply guide: server-side mute + cut (patched Jellyfin + CorrMedia)
 
-Use this when you want to build Jellyfin with the EDL mute-then-cut extension and run **CorrMedia**.
+Use this when you want to build Jellyfin with the CorrMedia core overlay and run sidecar `.corr.json` edits (mute, picture treatments, skip/cut) on the primary library item.
 
 **Before you install:** backup your Jellyfin config directory (and keep a path back to stock) before applying the overlay. There is no installer or built-in upgrade path — this is a manual rebuild and plugin copy. Needs more testing; it has not been tried on every OS, client, or hardware path.
 
