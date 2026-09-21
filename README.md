@@ -1,6 +1,18 @@
-# Jellyfin CorrMedia Plugin
+# CorrMedia
 
-A Jellyfin plugin that applies sidecar **mute**, **volume**, **beep**, **zoom**, **crop**, **blur**, **pixelate**, **cover**, **blank**, and **skip** from `*.corr.json`. Edits run on the **normal library item** for every client when the user has them enabled — not a second Version / media source, and not client Seek/Mute/Pause tricks. See [`ROADMAP.md`](ROADMAP.md).
+A Jellyfin **plugin** that applies sidecar **mute**, **volume**, **beep**, **zoom**, **crop**, **blur**, **pixelate**, **cover**, **blank**, and **skip** from `*.corr.json`. Edits run on the **normal library item** for every client when the user has them enabled — not a second Version / media source, and not client Seek/Mute/Pause tricks. See [`ROADMAP.md`](ROADMAP.md).
+
+## What this repository is
+
+This repo is CorrMedia: the plugin, the sidecar schema, and a **small core overlay** (encode hooks) you apply to Jellyfin 12.1 so mute/cut/picture edits can run on the primary item. The GitHub name `CorrMedia/jellyfin` is the plugin catalog (root `manifest.json` and release zips). You still run Jellyfin.
+
+It is **not**:
+
+- The official Jellyfin server ([jellyfin/jellyfin](https://github.com/jellyfin/jellyfin))
+- A full server fork you install instead of Jellyfin
+- A catalog of ready-made title sidecars (you write `{stem}.corr.json` next to your own files)
+
+On stock Jellyfin the plugin loads, but sidecar edits are not applied until the overlay is built in. See [`distribution/APPLY_GUIDE.md`](distribution/APPLY_GUIDE.md).
 
 ## Features
 
@@ -140,7 +152,7 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 - There is no installer or built-in upgrade path yet. You copy the plugin by hand and restart; mute/cut also means rebuilding a patched Jellyfin.
 - Needs more testing. Playback has not been tried on every OS, client, or hardware path.
 
-Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://github.com/CorrMedia/CorrMedia.github.io)). Plugin catalog: [github.com/CorrMedia/jellyfin](https://github.com/CorrMedia/jellyfin).
+Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://github.com/CorrMedia/CorrMedia.github.io)). This GitHub repo is the plugin catalog: [github.com/CorrMedia/jellyfin](https://github.com/CorrMedia/jellyfin).
 
 1. Download [CorrMedia.zip](https://github.com/CorrMedia/jellyfin/releases/latest) or build this repository
 2. Extract the zip into your Jellyfin `plugins` folder (so `Jellyfin.Plugin.CorrMedia.dll` sits in a plugin directory)
@@ -158,7 +170,7 @@ Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://githu
 
 ## Compatibility
 
-* Targeted at Jellyfin 10.11.11 (plugin ABI) / patched 10.11.11 overlay
+* Targeted at Jellyfin 12.1 (plugin ABI `12.1.0.0`, .NET 10) / patched 12.1 overlay
 * Listing play, Continue Watching, and typical web/mobile/TV clients use the primary item; coverage is incomplete
 
 ## Known Limitations
@@ -181,6 +193,9 @@ See [`ROADMAP.md`](ROADMAP.md): server mute → effects-then-cut → apply-edits
 PRs welcome. Prefer work aligned with the roadmap (server-side delivery over new client playback commands).
 
 ## Changelog
+
+### v1.2.0.0
+- Targets Jellyfin 12.1 (`net10.0`, plugin ABI `12.1.0.0`) and the matching core overlay
 
 ### v1.1.0.0
 - Sidecar format is `*.corr.json` (EDL files are no longer read)

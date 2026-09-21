@@ -1,14 +1,14 @@
 {
   "category": "General",
-  "changelog": "Primary-item sidecar edits: mute/volume/beep, zoom/crop/blur/pixelate/cover/blank, skip/cut, per-user category filters. Requires patched Jellyfin 10.11.11.",
+  "changelog": "Targets patched Jellyfin 12.1 (.NET 10). Primary-item sidecar edits: mute/volume/beep, zoom/crop/blur/pixelate/cover/blank, skip/cut, per-user category filters.",
   "description": "Applies sidecar .corr.json edits during playback on patched Jellyfin. Per-user apply toggle and category filters.",
   "guid": "d477f9fe-bde6-467c-88ba-5336048f955c",
   "name": "CorrMedia",
   "overview": "Sidecar .corr.json edits on patched Jellyfin",
   "owner": "CorrMedia",
-  "targetAbi": "10.11.11.0",
-  "timestamp": "2026-09-05T00:00:00Z",
-  "version": "1.1.0.0",
+  "targetAbi": "12.1.0.0",
+  "timestamp": "2026-09-15T00:00:00Z",
+  "version": "1.2.0.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": []

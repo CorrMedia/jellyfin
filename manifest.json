@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/CorrMedia/jellyfin/main/images/jellyfin-plugin-corrmedia.png",
     "versions": [
       {
+        "version": "1.2.0.0",
+        "changelog": "Targets patched Jellyfin 12.1 (.NET 10). Primary-item sidecar edits: mute/volume/beep, zoom/crop/blur/pixelate/cover/blank, skip/cut, per-user category filters.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/CorrMedia/jellyfin/releases/download/v1.2.0.0/CorrMedia.zip",
+        "checksum": "",
+        "timestamp": "2026-09-15T00:00:00Z"
+      },
+      {
         "version": "1.1.0.0",
         "changelog": "Primary-item sidecar edits: mute/volume/beep, zoom/crop/blur/pixelate/cover/blank, skip/cut, per-user category filters. Requires patched Jellyfin 10.11.11.",
         "targetAbi": "10.11.11.0",

@@ -138,7 +138,7 @@ Presets (“family”, “no commercials”, “mutes only”) are out of scope.
 
 - [ ] Optional MediaSegment provider from sidecar skips for client skip buttons when apply-edits is off.
 - [ ] Cache / reuse of edited transcodes for repeated playback.
-- [ ] Upstream Jellyfin PR for extension points (reduce need for a long-lived fork). PR 1 encode hooks live on `feature/session-encode-hooks` in the sibling `../jellyfin` clone (against jellyfin `master`). Overlay in this repo stays the 10.11.11 backport.
+- [ ] Upstream Jellyfin PR for extension points (reduce need for a long-lived fork). PR 1 encode hooks live on `feature/session-encode-hooks` in the sibling `../jellyfin` clone (against jellyfin `master`). Overlay in this repo is the 12.1 backport.
 - [ ] Scene-marker / POI `action` in corr.json if product wants chapter-like ranges.
 - [x] HLS / external VTT and SRT on the cut timeline (see `EDITED-TIMELINE.md`).
 - [x] Trickplay on the cut timeline (see `EDITED-TIMELINE.md`).

@@ -14,7 +14,7 @@ $pluginRoot = Join-Path $repoRoot 'docker\jellyfin\plugins'
 $dockerClientConfig = Join-Path $repoRoot '.docker-client'
 
 $pluginProject = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
-$pluginOutDir = 'net9.0'
+$pluginOutDir = 'net10.0'
 $pluginDll = Join-Path $repoRoot "Jellyfin.Plugin.CorrMedia\bin\Debug\$pluginOutDir\Jellyfin.Plugin.CorrMedia.dll"
 $pluginManifest = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\manifest.json'
 $pluginTargetDir = Join-Path $pluginRoot 'Jellyfin.Plugin.CorrMedia'

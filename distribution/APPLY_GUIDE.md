@@ -1,13 +1,13 @@
 # Apply guide: server-side mute + cut (patched Jellyfin + CorrMedia)
 
-Use this when you want to build Jellyfin with the CorrMedia core overlay and run sidecar `.corr.json` edits (mute, picture treatments, skip/cut) on the primary library item.
+This is not a replacement Jellyfin. Use this when you want to patch **official Jellyfin 12.1** with the CorrMedia overlay and run the CorrMedia plugin so sidecar `.corr.json` edits (mute, picture treatments, skip/cut) apply on the primary library item.
 
 **Before you install:** backup your Jellyfin config directory (and keep a path back to stock) before applying the overlay. There is no installer or built-in upgrade path — this is a manual rebuild and plugin copy. Needs more testing; it has not been tried on every OS, client, or hardware path.
 
 ## Prerequisites
 
-- .NET 9 SDK
-- A clone of [Jellyfin server](https://github.com/jellyfin/jellyfin) at **v10.11.11**, **or** this repo’s `jellyfin-source` (same tag)
+- .NET 10 SDK
+- A clone of [Jellyfin server](https://github.com/jellyfin/jellyfin) at **v12.1**, **or** this repo’s `jellyfin-source` (same tag)
 - This repo with `distribution/jellyfin-core-overlay` and `scripts/`
 
 ## Steps
@@ -20,7 +20,7 @@ From this repo root:
 .\scripts\apply-core-overlay.ps1 -JellyfinSourcePath C:\path\to\jellyfin
 ```
 
-You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionCorrDeliveryHint`, `ISessionSubtitleCueRewriter`, `ISessionTrickplayRewriter`, `ITrickplayCellCropper`, `SessionEditGraphHwBridge`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `SubtitleController`, `TrickplayController`, `MediaInfoHelper`, `DtoService`, `MediaSourceManager`, `UserLibraryController`, `ApplicationHost`, `CoreAppHost`, and `PackageController`.
+You should see copies for `ISessionAudioFilterProvider`, `ISessionMediaEditGraphProvider`, `ISessionMuteRangeLoader`, `ISessionCorrDeliveryHint`, `ISessionSubtitleCueRewriter`, `ISessionTrickplayRewriter`, `ITrickplayCellCropper`, `SessionEditGraphHwBridge`, `EncodingHelper`, `DynamicHlsController`, `VideosController`, `SubtitleController`, `TrickplayController`, `MediaInfoHelper`, `DtoService`, `MediaSourceManager`, `ApplicationHost`, `CoreAppHost`, and `PackageController`.
 
 ### 2. Build Jellyfin
 

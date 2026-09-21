@@ -2,9 +2,9 @@
 name: "CorrMedia"
 guid: "d477f9fe-bde6-467c-88ba-5336048f955c"
 imageUrl: "https://raw.githubusercontent.com/CorrMedia/jellyfin/main/images/jellyfin-plugin-corrmedia.png"
-version: "1.1.0.0"
-targetAbi: "10.11.11.0"
-framework: "net9.0"
+version: "1.2.0.0"
+targetAbi: "12.1.0.0"
+framework: "net10.0"
 overview: "Sidecar .corr.json edits on patched Jellyfin"
 description: >
   Applies sidecar .corr.json edits during playback on patched Jellyfin.
@@ -15,4 +15,4 @@ artifacts:
 - "Jellyfin.Plugin.CorrMedia.dll"
 changelog: >
   Primary-item sidecar edits: mute/volume/beep, zoom/crop/blur/pixelate/cover/blank,
-  skip/cut, per-user category filters. Requires patched Jellyfin 10.11.11.
+  skip/cut, per-user category filters. Requires patched Jellyfin 12.1.

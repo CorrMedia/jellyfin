@@ -5,7 +5,7 @@
 .DESCRIPTION
     0. Copies distribution/jellyfin-core-overlay into jellyfin-source (overlay is the source of truth).
     1. Builds the Docker image jellyfin-patched:local from jellyfin-source (patched server).
-    2. Builds CorrMedia (patched, net9.0) and copies it to docker/jellyfin/plugins.
+    2. Builds CorrMedia (patched, net10.0) and copies it to docker/jellyfin/plugins.
     2b. Bind-mounts repo-root test-movie.corr.json, test-movie.mkv, and test-movie.vtt over /media (see docker-compose.patched.yml).
     3. Starts the container with docker-compose.patched.yml.
 .PARAMETER SkipImageBuild
@@ -62,7 +62,7 @@ if (-not $SkipImageBuild) {
 # 2. Build and stage CorrMedia
 if (-not $SkipPlugins) {
     $pluginProject = Join-Path $repoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
-    $pluginOutDir = 'net9.0'
+    $pluginOutDir = 'net10.0'
     $pluginDll = Join-Path $repoRoot "Jellyfin.Plugin.CorrMedia\bin\Debug\$pluginOutDir\Jellyfin.Plugin.CorrMedia.dll"
 
     Write-Host 'Building CorrMedia plugin...'

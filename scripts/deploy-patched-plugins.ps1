@@ -3,7 +3,7 @@
 .SYNOPSIS
     Builds CorrMedia (with patched core ref when available) and copies it into a Jellyfin plugins folder.
 .DESCRIPTION
-    Builds CorrMedia from this repo against Jellyfin 10.11.11 (net9.0). When jellyfin-source exists, the plugin is built against the patched core.
+    Builds CorrMedia from this repo against Jellyfin 12.1 (net10.0). When jellyfin-source exists, the plugin is built against the patched core.
     Deploys CorrMedia only.
 .PARAMETER TargetPluginsPath
     Directory where Jellyfin looks for plugins.
@@ -28,7 +28,7 @@ if (-not $RepoRoot) {
 
 $pluginProject = Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\Jellyfin.Plugin.CorrMedia.csproj'
 $pluginOut = Join-Path $RepoRoot 'Jellyfin.Plugin.CorrMedia\bin\Debug'
-$tfm = 'net9.0'
+$tfm = 'net10.0'
 $pluginDll = Join-Path $pluginOut "$tfm\Jellyfin.Plugin.CorrMedia.dll"
 
 Write-Host "Building CorrMedia ($tfm)..."

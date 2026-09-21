@@ -1,4 +1,4 @@
-Server-side mute + cut: Jellyfin core overlay (10.11.11)
+Server-side mute + cut: Jellyfin core overlay (12.1)
 =============================================
 
 Adds:
@@ -10,7 +10,7 @@ Adds:
 - ISessionTrickplayRewriter / ITrickplayCellCropper — remap trickplay duration and tile cells onto the edited timeline
 - ISessionChapterRewriter — remap BaseItemDto chapter markers onto the edited timeline
 - SessionEditGraphHwBridge — HW decode hwdownload (when known) + CPU graph → format/hwupload before GetVideoEncoder
-- EncodingHelper / VideosController / DynamicHlsController / DynamicHlsHelper / StreamingHelpers / MediaInfoHelper / DtoService / MediaSourceManager / UserLibraryController / SubtitleController / TrickplayController / CoreAppHost wiring
+- EncodingHelper / VideosController / DynamicHlsController / DynamicHlsHelper / StreamingHelpers / MediaInfoHelper / DtoService / MediaSourceManager / SubtitleController / TrickplayController / CoreAppHost wiring
 
 When a `.corr.json` sidecar exists and the user has apply-edits on, the normal library item
 transcodes with the graph. Titles and media-source names get " (Edited)". There is no second

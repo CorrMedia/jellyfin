@@ -4,12 +4,12 @@
 # (Build context must include jellyfin-source and docker/.)
 
 # Use official image for ffmpeg, jellyfin-web, and runtime env
-ARG JELLYFIN_BASE=jellyfin/jellyfin:10.11.11
+ARG JELLYFIN_BASE=jellyfin/jellyfin:12.1
 FROM ${JELLYFIN_BASE} AS base
 
 # Build the patched server (same repo layout as jellyfin-packaging expects).
-# If you see "TLS handshake timeout" pulling this image, it is a network/Docker issue (proxy, VPN, or MCR reachability). Retry or try: docker pull mcr.microsoft.com/dotnet/sdk:9.0
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# If you see "TLS handshake timeout" pulling this image, it is a network/Docker issue (proxy, VPN, or MCR reachability). Retry or try: docker pull mcr.microsoft.com/dotnet/sdk:10.0
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy entire jellyfin source (context is repo root; jellyfin-source is at ./jellyfin-source)
