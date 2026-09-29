@@ -1,0 +1,35 @@
+{
+  "$schema": "../schema/corr.schema.json",
+  "schema_version": "1.0",
+  "media": {
+    "title": "Example per-edit spoken language",
+    "runtime": 120
+  },
+  "edits": [
+    {
+      "id": "edit_001",
+      "start": 12.4,
+      "end": 14.1,
+      "action": "mute",
+      "language": "eng",
+      "categories": ["word_damn"],
+      "description": "English track only"
+    },
+    {
+      "id": "edit_002",
+      "start": 40.0,
+      "end": 42.5,
+      "action": "mute",
+      "language": "spa",
+      "categories": ["word_damn"],
+      "description": "Spanish track only; same category id, different time"
+    },
+    {
+      "id": "edit_003",
+      "start": 90.0,
+      "end": 95.0,
+      "action": "skip",
+      "description": "Same cut on every audio track, so language is omitted"
+    }
+  ]
+}

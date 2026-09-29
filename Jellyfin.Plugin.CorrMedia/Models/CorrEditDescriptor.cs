@@ -11,10 +11,12 @@ namespace Jellyfin.Plugin.CorrMedia.Models;
 /// <param name="EndTime">Range end in seconds on the original timeline.</param>
 /// <param name="Description">Optional sidecar description.</param>
 /// <param name="Categories">Optional sidecar categories.</param>
+/// <param name="Language">Optional ISO 639 spoken language. Null applies on every audio track.</param>
 public sealed record CorrEditDescriptor(
     string Id,
     string Action,
     double StartTime,
     double EndTime,
     string? Description,
-    IReadOnlyList<string> Categories);
+    IReadOnlyList<string> Categories,
+    string? Language = null);

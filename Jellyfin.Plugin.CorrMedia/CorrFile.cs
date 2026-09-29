@@ -88,7 +88,8 @@ internal static class CorrFile
                     edit.Start,
                     edit.End,
                     string.IsNullOrWhiteSpace(edit.Description) ? null : edit.Description.Trim(),
-                    NormalizeCategories(edit.Categories));
+                    NormalizeCategories(edit.Categories),
+                    NormalizeLanguage(edit.Language));
 
                 if (string.Equals(canonical, "mute", StringComparison.Ordinal))
                 {
@@ -419,6 +420,9 @@ internal static class CorrFile
             .ToList();
     }
 
+    private static string? NormalizeLanguage(string? language)
+        => string.IsNullOrWhiteSpace(language) ? null : language.Trim();
+
     private sealed class CorrDocument
     {
         public IReadOnlyList<CorrEdit>? Edits { get; set; }
@@ -437,6 +441,8 @@ internal static class CorrFile
         public string? Description { get; set; }
 
         public IReadOnlyList<string>? Categories { get; set; }
+
+        public string? Language { get; set; }
 
         public IReadOnlyList<string>? Channels { get; set; }
 

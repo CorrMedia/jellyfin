@@ -18,6 +18,7 @@ public sealed class SessionChapterRewriter : ISessionChapterRewriter
 {
     private readonly ILibraryManager _libraryManager;
     private readonly EditOverrideStore _editOverrideStore;
+    private readonly PlaybackAudioLanguage _playbackAudio;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<SessionChapterRewriter> _logger;
 
@@ -26,16 +27,19 @@ public sealed class SessionChapterRewriter : ISessionChapterRewriter
     /// </summary>
     /// <param name="libraryManager">Library manager.</param>
     /// <param name="editOverrideStore">Per-user apply/filter store.</param>
+    /// <param name="playbackAudio">Selected audio-stream language.</param>
     /// <param name="httpContextAccessor">Current request, for the playing user.</param>
     /// <param name="logger">Logger.</param>
     public SessionChapterRewriter(
         ILibraryManager libraryManager,
         EditOverrideStore editOverrideStore,
+        PlaybackAudioLanguage playbackAudio,
         IHttpContextAccessor httpContextAccessor,
         ILogger<SessionChapterRewriter> logger)
     {
         _libraryManager = libraryManager ?? throw new ArgumentNullException(nameof(libraryManager));
         _editOverrideStore = editOverrideStore ?? throw new ArgumentNullException(nameof(editOverrideStore));
+        _playbackAudio = playbackAudio ?? throw new ArgumentNullException(nameof(playbackAudio));
         _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _logger.LogInformation("SessionChapterRewriter registered (chapters on edited timeline)");
@@ -80,8 +84,10 @@ public sealed class SessionChapterRewriter : ISessionChapterRewriter
         => CorrPlaybackEvaluator.TryGetAppliedEdits(
             _libraryManager,
             _editOverrideStore,
+            _playbackAudio,
             itemId,
             TryGetRequestUserId(),
+            null,
             out edits,
             _logger);
 

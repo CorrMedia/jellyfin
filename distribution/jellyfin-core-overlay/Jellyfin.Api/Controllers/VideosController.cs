@@ -443,6 +443,7 @@ public class VideosController : BaseJellyfinApiController
                 streamingRequest.DeviceId,
                 itemIdStr,
                 streamingRequest.MediaSourceId,
+                streamingRequest.AudioStreamIndex,
                 cancellationTokenSource.Token).ConfigureAwait(false);
         }
 

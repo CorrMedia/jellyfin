@@ -121,7 +121,12 @@
           "categories": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Content tags used to turn sidecar treatments on or off. Use ids from schema/categories.md (the plugin dashboard tree). A parent id applies the whole group; a word id applies that word only. The action on the edit still decides mute vs beep vs crop vs skip. Unknown tokens map to other."
+            "description": "Content tags used to turn sidecar treatments on or off. Use ids from schema/categories.md (the plugin dashboard tree). A parent id applies the whole group; a word id applies that word only. The action on the edit still decides mute vs beep vs crop vs skip. Unknown tokens map to other. This is not the spoken language of the edit; that is language."
+          },
+          "language": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Optional spoken language of this edit, compared with the audio stream selected for playback. Use an ISO 639-1 or ISO 639-2 code (en, eng, es, spa). Case does not matter. Bibliographic and terminology codes for the same language match (fre and fra). Region and script subtags are ignored (zh-Hans is zh). Omit the property, or use an empty string, to apply the edit on every audio track. Picture edits and cuts that are the same in every language should omit it. When set, the edit applies only if the selected audio stream is that language. It does not apply when the stream has no language, or is tagged und or mul, or when the code is not a known language. Subtitle language is not consulted. There is no document-level language. This is not the content category Language (categories token language still means profanity)."
           },
           "severity": { "type": "integer" },
           "description": { "type": "string" }

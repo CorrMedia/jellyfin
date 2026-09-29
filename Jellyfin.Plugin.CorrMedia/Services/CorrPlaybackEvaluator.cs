@@ -22,22 +22,27 @@ internal static class CorrPlaybackEvaluator
     /// </summary>
     /// <param name="libraryManager">Library manager.</param>
     /// <param name="overrideStore">Per-user apply/filter store.</param>
+    /// <param name="playbackAudio">Resolves the selected audio-stream language.</param>
     /// <param name="itemId">Library item id.</param>
     /// <param name="userId">Playing user; empty uses default (apply all).</param>
+    /// <param name="audioStreamIndex">Audio stream index from the encode request, or null to use playback info and the user's default track.</param>
     /// <param name="edits">Applied edits when the method returns true.</param>
     /// <param name="logger">Optional logger for sidecar parse failures.</param>
     /// <returns>True when playback should encode with sidecar edits.</returns>
     public static bool TryGetAppliedEdits(
         ILibraryManager libraryManager,
         EditOverrideStore overrideStore,
+        PlaybackAudioLanguage playbackAudio,
         string? itemId,
         Guid userId,
+        int? audioStreamIndex,
         out CorrEdits edits,
         ILogger? logger = null)
     {
         edits = CorrEdits.Empty;
         ArgumentNullException.ThrowIfNull(libraryManager);
         ArgumentNullException.ThrowIfNull(overrideStore);
+        ArgumentNullException.ThrowIfNull(playbackAudio);
 
         if (string.IsNullOrEmpty(itemId) || !Guid.TryParse(itemId, out var guid))
         {
@@ -57,7 +62,18 @@ internal static class CorrPlaybackEvaluator
         }
 
         var parsed = CorrFile.Parse(corrPath, logger);
-        edits = EditComplianceFilter.Apply(parsed, overrideStore.Get(userId));
+        var streamLanguage = playbackAudio.Resolve(item, userId, audioStreamIndex);
+        var forLanguage = SpokenLanguageFilter.Apply(parsed, streamLanguage);
+        if (forLanguage.All.Count != parsed.All.Count)
+        {
+            logger?.LogDebug(
+                "CorrMedia kept {Kept} of {Total} sidecar edits for audio language {Language}",
+                forLanguage.All.Count,
+                parsed.All.Count,
+                streamLanguage ?? "(none)");
+        }
+
+        edits = EditComplianceFilter.Apply(forLanguage, overrideStore.Get(userId));
         return edits.HasPlaybackEdits;
     }
 

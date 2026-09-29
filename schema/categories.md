@@ -2,6 +2,8 @@
 
 `edits[].categories` must use ids from this tree. It is the same taxonomy the CorrMedia dashboard shows when a user turns treatments on or off.
 
+Spoken language is a different field: `edits[].language` in [`corr.schema.json`](corr.schema.json). The category alias `language` below still means profanity. Do not put `eng` or `spa` in `categories`.
+
 This plugin owns the list (`Jellyfin.Plugin.CorrMedia/Models/EditCategoryCatalog.cs`). A later title catalog should reuse these ids, not invent a parallel set.
 
 - Put one or more **ids** on each edit. The `action` (mute, beep, crop, skip, …) is separate and still comes from the sidecar.

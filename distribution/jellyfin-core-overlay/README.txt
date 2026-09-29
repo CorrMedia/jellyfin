@@ -1,6 +1,9 @@
 Server-side mute + cut: Jellyfin core overlay (12.1)
 =============================================
 
+License: GNU General Public License version 2 only (GPL-2.0-only), the same license as Jellyfin.
+These files are modified Jellyfin 12.1 source. The full text is ../../LICENSE.
+
 Adds:
 - ISessionAudioFilterProvider — mute-only -af injection
 - ISessionMediaEditGraphProvider — effects-then-cut -filter_complex (mute/zoom/blur first, then cut; times on original source)

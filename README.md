@@ -56,6 +56,24 @@ All `start` / `end` values are seconds on the **original** source timeline and r
 
 Other `action` values are reserved and ignored. Zoom and crop use `scale` + `x`/`y` (normalized center) or a `box`; pan with `x_end`/`y_end` or `box_end`. Blur uses `radius` and optional `box`; pan a regional blur/cover/pixelate with `box_end`.
 
+**Spoken language** is optional on each edit (`language`). `schema_version` stays `1.0`. There is no language for the whole file. Omit it when the edit is the same on every audio track (a scene cut, a blur, a crop). Set it when the times follow one spoken track.
+
+The value is an ISO 639-1 or ISO 639-2 code (`en`, `eng`, `es`, `spa`). Matching is case-insensitive, and `fre` / `fra` are the same language. Only the language subtag counts. The edit applies when the audio stream selected for that playback is that language. It does not apply if that stream has no language or is `und` / `mul`, and subtitle language is ignored. A code that is not a language does not apply either.
+
+`language` here is not the content category. `categories` still uses ids from [`schema/categories.md`](schema/categories.md). The token `language` inside `categories` still means profanity.
+
+**English mute, Spanish mute, language-independent cut:**
+```json
+{
+  "schema_version": "1.0",
+  "edits": [
+    { "id": "edit_001", "start": 12.4, "end": 14.1, "action": "mute", "language": "eng", "categories": ["word_damn"] },
+    { "id": "edit_002", "start": 40.0, "end": 42.5, "action": "mute", "language": "spa", "categories": ["word_damn"] },
+    { "id": "edit_003", "start": 90.0, "end": 95.0, "action": "skip" }
+  ]
+}
+```
+
 **Skip-only:**
 ```json
 {
@@ -176,7 +194,7 @@ Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://githu
 ## Known Limitations
 
 * **Edited encode requires patched Jellyfin** (core overlay). On stock Jellyfin, filters are not applied.
-* Sidecar playback forces transcoding (DirectPlay/Stream off); cuts also force HLS for seekability.
+* Edited playback transcodes into a temporary stream (DirectPlay/Stream off; HLS when there are cuts). The library file is never rewritten.
 * Skip and picture edits cannot stay entirely on the GPU. NVENC, QSV, VAAPI, and similar can decode and encode, but they do not expose a portable filter set for overlay, punch-in crop, concat cuts, or timed boxes. Those run on the CPU after a download from the decoder; the encoder can still be hardware. Mute-only (no cuts or picture edits) still uses Jellyfin’s stock hardware video path. HDR/10-bit through the graph is flattened to 8-bit. Turn apply-edits off if a title only plays via a full hardware transcode.
 * Edited `RunTimeTicks` is original duration minus merged skip totals (approximate for scrubbing)
 * HLS / external VTT and SRT cues, trickplay tiles, and chapter markers are remapped onto the cut timeline; burned-in text/ASS and graphical subs (internal or external) overlay before cuts.
@@ -194,6 +212,10 @@ PRs welcome. Prefer work aligned with the roadmap (server-side delivery over new
 
 ## Changelog
 
+### v1.3.0.0
+- Optional `edits[].language` applies a sidecar edit only when the selected audio track is that language. Untagged edits still apply on every track.
+- The patched server must be rebuilt. The overlay now passes the selected audio stream index into mute-range loading.
+
 ### v1.2.0.0
 - Targets Jellyfin 12.1 (`net10.0`, plugin ABI `12.1.0.0`) and the matching core overlay
 
@@ -209,3 +231,15 @@ PRs welcome. Prefer work aligned with the roadmap (server-side delivery over new
 
 ### v1.0.0.1
 - Initial release with skip-only functionality
+
+## License
+
+CorrMedia is licensed under the GNU General Public License version 2 only. See [`LICENSE`](LICENSE).
+
+The core overlay in [`distribution/jellyfin-core-overlay`](distribution/jellyfin-core-overlay) is modified Jellyfin 12.1 source and stays under that same license. The plugin is GPL-2 as well, because it loads inside that patched server.
+
+## Copyright
+
+CorrMedia does not provide or distribute copyrighted media. It is a playback-modification tool for media the user is legally entitled to play. Users are responsible for ensuring that their use of CorrMedia complies with applicable law. CorrMedia does not endorse copyright infringement or unauthorized distribution.
+
+CorrMedia is an independent project and is not affiliated with or endorsed by the Jellyfin Project.

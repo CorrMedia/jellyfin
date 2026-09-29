@@ -2056,6 +2056,7 @@ public class DynamicHlsController : BaseJellyfinApiController
                 streamingRequest.DeviceId,
                 itemId,
                 streamingRequest.MediaSourceId,
+                streamingRequest.AudioStreamIndex,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -2082,7 +2083,7 @@ public class DynamicHlsController : BaseJellyfinApiController
     {
         foreach (var loader in _muteRangeLoaders ?? Array.Empty<MediaBrowser.Controller.MediaEncoding.ISessionMuteRangeLoader>())
         {
-            await loader.EnsureMuteRangesLoadedAsync(playSessionId, deviceId, itemId, mediaSourceId, cancellationToken).ConfigureAwait(false);
+            await loader.EnsureMuteRangesLoadedAsync(playSessionId, deviceId, itemId, mediaSourceId, null, cancellationToken).ConfigureAwait(false);
         }
 
         return _encodingHelper.HasSessionAudioFilterForRequest(playSessionId ?? string.Empty, deviceId ?? string.Empty)

@@ -19,6 +19,7 @@ public interface ISessionMuteRangeLoader
     /// <param name="deviceId">Device ID from the stream request (may be null or empty).</param>
     /// <param name="itemId">Item ID from the stream request (may be null); used to resolve media path when session's now-playing path is not set yet.</param>
     /// <param name="mediaSourceId">Media source id from the stream request.</param>
+    /// <param name="audioStreamIndex">Audio stream index selected for this playback, or null to use the user's default track.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="System.Threading.Tasks.Task"/> representing the asynchronous operation.</returns>
     System.Threading.Tasks.Task EnsureMuteRangesLoadedAsync(
@@ -26,5 +27,6 @@ public interface ISessionMuteRangeLoader
         string? deviceId,
         string? itemId,
         string? mediaSourceId,
+        int? audioStreamIndex,
         System.Threading.CancellationToken cancellationToken);
 }

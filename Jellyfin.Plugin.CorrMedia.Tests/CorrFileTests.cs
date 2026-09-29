@@ -144,6 +144,24 @@ public sealed class CorrFileTests
         var edits = CorrFile.Parse(file.FilePath);
         Assert.Equal(["Profanity"], edits.All[0].Categories);
         Assert.Equal("dialogue", edits.All[0].Description);
+        Assert.Null(edits.All[0].Language);
+    }
+
+    [Fact]
+    public void Parse_KeepsSpokenLanguageAndTreatsBlankAsUntagged()
+    {
+        using var file = new TempCorrFile(
+            """
+            {
+              "edits": [
+                { "id": "en", "start": 1, "end": 2, "action": "mute", "language": " eng " },
+                { "id": "any", "start": 3, "end": 4, "action": "skip", "language": "  " }
+              ]
+            }
+            """);
+        var edits = CorrFile.Parse(file.FilePath);
+        Assert.Equal("eng", edits.All[0].Language);
+        Assert.Null(edits.All[1].Language);
     }
 
     [Fact]

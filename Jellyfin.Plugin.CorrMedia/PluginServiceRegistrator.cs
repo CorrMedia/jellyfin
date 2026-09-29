@@ -15,6 +15,7 @@ namespace Jellyfin.Plugin.CorrMedia
         {
             serviceCollection.AddSingleton<CorrEditStore>();
             serviceCollection.AddSingleton<EditOverrideStore>();
+            serviceCollection.AddSingleton<PlaybackAudioLanguage>();
             serviceCollection.AddHostedService<CorrSessionCleanup>();
 
 #if PATCHED_CORE

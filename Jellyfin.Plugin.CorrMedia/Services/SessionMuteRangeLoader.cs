@@ -24,6 +24,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services
         private readonly ILibraryManager _libraryManager;
         private readonly CorrEditStore _corrEditStore;
         private readonly EditOverrideStore _editOverrideStore;
+        private readonly PlaybackAudioLanguage _playbackAudio;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<SessionMuteRangeLoader> _logger;
 
@@ -34,6 +35,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services
         /// <param name="libraryManager">Library manager.</param>
         /// <param name="corrEditStore">Sidecar edit store.</param>
         /// <param name="editOverrideStore">Per-user apply/filter store.</param>
+        /// <param name="playbackAudio">Selected audio-stream language.</param>
         /// <param name="httpContextAccessor">Current request, for the playing user.</param>
         /// <param name="logger">Logger.</param>
         public SessionMuteRangeLoader(
@@ -41,6 +43,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services
             ILibraryManager libraryManager,
             CorrEditStore corrEditStore,
             EditOverrideStore editOverrideStore,
+            PlaybackAudioLanguage playbackAudio,
             IHttpContextAccessor httpContextAccessor,
             ILogger<SessionMuteRangeLoader> logger)
         {
@@ -48,6 +51,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services
             _libraryManager = libraryManager ?? throw new ArgumentNullException(nameof(libraryManager));
             _corrEditStore = corrEditStore ?? throw new ArgumentNullException(nameof(corrEditStore));
             _editOverrideStore = editOverrideStore ?? throw new ArgumentNullException(nameof(editOverrideStore));
+            _playbackAudio = playbackAudio ?? throw new ArgumentNullException(nameof(playbackAudio));
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -58,6 +62,7 @@ namespace Jellyfin.Plugin.CorrMedia.Services
             string? deviceId,
             string? itemId,
             string? mediaSourceId,
+            int? audioStreamIndex,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -68,8 +73,10 @@ namespace Jellyfin.Plugin.CorrMedia.Services
             if (!CorrPlaybackEvaluator.TryGetAppliedEdits(
                     _libraryManager,
                     _editOverrideStore,
+                    _playbackAudio,
                     itemId,
                     userId,
+                    audioStreamIndex,
                     out var edits,
                     _logger))
             {
