@@ -13,8 +13,8 @@
         "changelog": "Targets patched Jellyfin 12.1 (.NET 10). Primary-item sidecar edits: mute/volume/beep, zoom/crop/blur/pixelate/cover/blank, skip/cut, per-user category filters.",
         "targetAbi": "12.1.0.0",
         "sourceUrl": "https://github.com/CorrMedia/jellyfin/releases/download/v1.2.0.0/CorrMedia.zip",
-        "checksum": "",
-        "timestamp": "2026-09-15T00:00:00Z"
+        "checksum": "edc6c4b83aac997b4016bef9b3a416a9",
+        "timestamp": "2026-09-29T05:00:00Z"
       },
       {
         "version": "1.1.0.0",
