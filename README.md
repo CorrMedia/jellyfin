@@ -4,7 +4,7 @@ A Jellyfin **plugin** that applies sidecar **mute**, **volume**, **beep**, **zoo
 
 ## What this repository is
 
-This repo is CorrMedia: the plugin, the sidecar schema, and a **small core overlay** (encode hooks) you apply to Jellyfin 12.1 so mute/cut/picture edits can run on the primary item. The GitHub name `CorrMedia/jellyfin` is the plugin catalog (root `manifest.json` and release zips). You still run Jellyfin.
+This repo is CorrMedia: the plugin, the sidecar schema, and a **small core overlay** (encode hooks) you apply to Jellyfin 12.1 so mute/cut/picture edits can run on the primary item. The GitHub name `CorrMedia/jellyfin-plugin-corrmedia` is the plugin catalog (root `manifest.json` and release zips). You still run Jellyfin.
 
 It is **not**:
 
@@ -170,9 +170,9 @@ See [`test-movie.corr.json`](test-movie.corr.json) and [`examples/`](examples/).
 - There is no installer or built-in upgrade path yet. You copy the plugin by hand and restart; mute/cut also means rebuilding a patched Jellyfin.
 - Needs more testing. Playback has not been tried on every OS, client, or hardware path.
 
-Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://github.com/CorrMedia/CorrMedia.github.io)). This GitHub repo is the plugin catalog: [github.com/CorrMedia/jellyfin](https://github.com/CorrMedia/jellyfin).
+Site: [corrmedia.github.io](https://corrmedia.github.io) ([source](https://github.com/CorrMedia/CorrMedia.github.io)). This GitHub repo is the plugin catalog: [github.com/CorrMedia/jellyfin-plugin-corrmedia](https://github.com/CorrMedia/jellyfin-plugin-corrmedia).
 
-1. Download [CorrMedia.zip](https://github.com/CorrMedia/jellyfin/releases/latest) or build this repository
+1. Download [CorrMedia.zip](https://github.com/CorrMedia/jellyfin-plugin-corrmedia/releases/latest) or build this repository
 2. Extract the zip into your Jellyfin `plugins` folder (so `Jellyfin.Plugin.CorrMedia.dll` sits in a plugin directory)
 3. Restart Jellyfin
 4. Configure the plugin in the Jellyfin dashboard

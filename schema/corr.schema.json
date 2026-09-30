@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/CorrMedia/jellyfin/schema/corr.schema.json",
+  "$id": "https://github.com/CorrMedia/jellyfin-plugin-corrmedia/schema/corr.schema.json",
   "title": "Corr edit sidecar",
   "description": "Sidecar next to a media file (MyMovie.mkv → MyMovie.corr.json). Playback applies mute, volume, beep, zoom, crop, blur, pixelate, cover, blank, and skip. Other actions are reserved. Non-length-altering edits are applied before length-altering edits (skip/cut). Output frame size never changes (crop pads with black). All times are on the original source timeline and are never adjusted for cuts.",
   "type": "object",
